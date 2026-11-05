@@ -11,7 +11,7 @@ Set the base URL of your running MatchLab instance:
 services:
   bitmagnet:
     environment:
-      MATCHLAB_URL: "https://matchlab.notprod.fyi"
+      MATCHLAB_URL: "http://matchlab:8765"
 ```
 
 Once the changes are merged into `main`, the fork's GitHub Actions workflow
@@ -32,7 +32,7 @@ bitmagnet attaches content under the IMDb ID. If MatchLab returns no match, the 
 
 MatchLab returns `sid_start`, `sid_end`, `asid_start` and `asid_end`.
 This integration uses the IMDb title ID from matching equal SID endpoints;
-it does not yet persist MatchLab's season/episode or AniDB coordinates.
+the integration also uses MatchLab's `/parse` output to replace Bitmagnet's existing parsed title, year, season and episode values when supplied. It does not introduce new database fields or persist AniDB coordinates.
 After MatchLab identifies an IMDb title, bitmagnet can use TMDB's IMDb external-ID lookup and title-details endpoints to enrich the confirmed identity with posters, synopsis and other metadata. TMDB is **never used to identify a torrent by searching its name**. If enrichment is unavailable, a minimal IMDb-linked content record is retained.
 
 
