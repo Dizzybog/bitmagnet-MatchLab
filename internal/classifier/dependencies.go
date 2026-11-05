@@ -5,7 +5,7 @@ import (
 )
 
 type dependencies struct {
-	search     LocalSearch
-	tmdbClient tmdb.Client
+	search         LocalSearch
+	tmdbClient     tmdb.Client
 	matchlabClient *matchlabClient
 }
