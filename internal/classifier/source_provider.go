@@ -1,15 +1,13 @@
 package classifier
 
 import (
-	"os"
-	"strings"
-
 	"github.com/adrg/xdg"
+	"github.com/bitmagnet-io/bitmagnet/internal/matchlab"
 	"github.com/bitmagnet-io/bitmagnet/internal/tmdb"
 	"gopkg.in/yaml.v3"
 )
 
-func newSourceProvider(config Config, tmdbConfig tmdb.Config) sourceProvider {
+func newSourceProvider(config Config, tmdbConfig tmdb.Config, matchlabConfig matchlab.Config) sourceProvider {
 	return mergeSourceProvider{
 		providers: []sourceProvider{
 			yamlSourceProvider{rawSourceProvider: coreSourceProvider{}},
@@ -18,7 +16,7 @@ func newSourceProvider(config Config, tmdbConfig tmdb.Config) sourceProvider {
 			configSourceProvider{
 				config:          config,
 				tmdbEnabled:     tmdbConfig.Enabled,
-				matchlabEnabled: strings.TrimSpace(os.Getenv("MATCHLAB_URL")) != "",
+				matchlabEnabled: matchlabConfig.Enabled(),
 			},
 		},
 	}

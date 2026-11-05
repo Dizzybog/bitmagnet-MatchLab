@@ -8,6 +8,7 @@ import (
 	"github.com/bitmagnet-io/bitmagnet/internal/model"
 	"github.com/bitmagnet-io/bitmagnet/internal/protobuf"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types"
 )
 
 type runner struct {
@@ -40,6 +41,17 @@ func (r runner) Run(ctx context.Context, workflow string, flags Flags, t model.T
 		} else {
 			cfs[k] = r.compiledFlags[k]
 		}
+	}
+
+	// A configured MatchLab is authoritative for torrent-to-IMDb identification.
+	// Runtime queue flags may disable API calls globally, but must not bypass
+	// the provider and silently re-enable local/TMDB title searches.
+	if r.matchlabClient != nil {
+		cfs["matchlab_enabled"] = types.Bool(true)
+		cfs["local_search_enabled"] = types.Bool(false)
+	}
+	if !r.tmdbEnabled {
+		cfs["tmdb_enabled"] = types.Bool(false)
 	}
 
 	cl := classification.Result{}
