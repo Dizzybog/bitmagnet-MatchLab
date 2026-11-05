@@ -9,6 +9,7 @@ import (
     "net/http"
     "net/url"
     "os"
+    "strconv"
     "strings"
     "time"
 
@@ -47,38 +48,36 @@ func newMatchlabClient(raw string) (*matchlabClient,error) {
     }},nil
 }
 
-func (m *matchlabClient) match(ctx context.Context,title string)(string,bool,error){
-    if m==nil {return "",false,nil}
+func (m *matchlabClient) match(ctx context.Context,title string)(matchlabResponse,bool,error){
+    if m==nil {return matchlabResponse{},false,nil}
     u,err:=url.Parse(m.endpoint)
-    if err!=nil{return "",false,err}
+    if err!=nil{return matchlabResponse{},false,err}
     q:=u.Query();q.Set("title",title);u.RawQuery=q.Encode()
     req,err:=http.NewRequestWithContext(ctx,http.MethodGet,u.String(),nil)
-    if err!=nil{return "",false,err}
+    if err!=nil{return matchlabResponse{},false,err}
     res,err:=m.httpClient.Do(req)
-    if err!=nil{return "",false,err}
+    if err!=nil{return matchlabResponse{},false,err}
     defer res.Body.Close()
-    if res.StatusCode!=http.StatusOK{return "",false,fmt.Errorf("MatchLab HTTP %d",res.StatusCode)}
+    if res.StatusCode!=http.StatusOK{return matchlabResponse{},false,fmt.Errorf("MatchLab HTTP %d",res.StatusCode)}
     var payload matchlabResponse
     if err=json.NewDecoder(io.LimitReader(res.Body,16*1024)).Decode(&payload);err!=nil {
-        return "",false,fmt.Errorf("invalid MatchLab response: %w",err)
+        return matchlabResponse{},false,fmt.Errorf("invalid MatchLab response: %w",err)
     }
-    if payload.SIDStart==nil||payload.SIDEnd==nil{return "",false,nil}
+    if payload.SIDStart==nil||payload.SIDEnd==nil{return matchlabResponse{},false,nil}
     start,end:=*payload.SIDStart,*payload.SIDEnd
-    if end=="" {return "",false,nil}
+    if end=="" {return matchlabResponse{},false,nil}
     endID,_,_:=strings.Cut(end,":")
-    if endID!=strings.SplitN(start,":",2)[0]{return "",false,nil}
+    if endID!=strings.SplitN(start,":",2)[0]{return matchlabResponse{},false,nil}
     imdb,_,_:=strings.Cut(start,":")
-    if len(imdb)<9||len(imdb)>12||!strings.HasPrefix(imdb,"tt") {return "",false,errors.New("invalid IMDb identifier from MatchLab")}
-    for _,digit:=range imdb[2:] {if digit<'0'||digit>'9'{return "",false,errors.New("invalid IMDb identifier from MatchLab")}}
-    return imdb,true,nil
+    if len(imdb)<9||len(imdb)>12||!strings.HasPrefix(imdb,"tt") {return matchlabResponse{},false,errors.New("invalid IMDb identifier from MatchLab")}
+    for _,digit:=range imdb[2:] {if digit<'0'||digit>'9'{return matchlabResponse{},false,errors.New("invalid IMDb identifier from MatchLab")}}
+    return payload,true,nil
 }
 
 
 type matchlabParsed struct {
     Title string `json:"title"`
     Year *int `json:"year"`
-    Seasons []int `json:"seasons"`
-    Episodes []int `json:"episodes"`
 }
 
 // Parsing overrides only existing Bitmagnet fields, never adds a new schema field.
@@ -104,22 +103,23 @@ func (m *matchlabClient) overrideParsed(ctx context.Context,title string,cl *cla
     if parsed.Year!=nil&&*parsed.Year>=1800&&*parsed.Year<=2100 {
         cl.Date.Year=model.Year(*parsed.Year)
     }
-    if len(parsed.Seasons)>0 {
-        episodes:=make(model.Episodes)
-        if len(parsed.Episodes)>0 {
-            for _,season:=range parsed.Seasons {
-                if season<0||season>9999 {continue}
-                for _,episode:=range parsed.Episodes {
-                    if episode>=0&&episode<=99999 {episodes.AddEpisode(season,episode)}
-                }
-            }
-        } else {
-            for _,season:=range parsed.Seasons {
-                if season>=0&&season<=9999 {episodes.AddSeason(season)}
-            }
-        }
-        if len(episodes)>0 {cl.Episodes=episodes}
-    }
+
+}
+
+// MatchLab /match is authoritative for season/episode coordinates.
+// Do not synthesize cross-season ranges or change values on malformed SIDs.
+func applyMatchlabEpisodes(payload matchlabResponse,cl *classification.Result) {
+    if payload.SIDStart==nil||payload.SIDEnd==nil{return}
+    start:=strings.Split(*payload.SIDStart,":")
+    end:=strings.Split(*payload.SIDEnd,":")
+    if len(start)!=3||len(end)!=3||start[0]!=end[0]{return}
+    s1,err1:=strconv.Atoi(start[1]);e1,err2:=strconv.Atoi(start[2])
+    s2,err3:=strconv.Atoi(end[1]);e2,err4:=strconv.Atoi(end[2])
+    if err1!=nil||err2!=nil||err3!=nil||err4!=nil||
+        s1<0||s1>9999||s2!=s1||e1<0||e2<e1||e2>99999||e2-e1>1000{return}
+    episodes:=make(model.Episodes)
+    for episode:=e1;episode<=e2;episode++{episodes.AddEpisode(s1,episode)}
+    cl.Episodes=episodes
 }
 
 const attachMatchlabContentBySearchName="attach_matchlab_content_by_search"
@@ -135,10 +135,12 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext)(ac
     return action{run:func(ctx executionContext)(classification.Result,error){
         cl:=ctx.result
         if ctx.matchlabClient==nil{return cl,classification.ErrUnmatched}
-        imdb,found,err:=ctx.matchlabClient.match(ctx.Context,ctx.torrent.Name)
+        matched,found,err:=ctx.matchlabClient.match(ctx.Context,ctx.torrent.Name)
         if err!=nil{return cl,classification.ErrUnmatched}
         if !found{return cl,classification.ErrUnmatched}
         ctx.matchlabClient.overrideParsed(ctx.Context,ctx.torrent.Name,&cl)
+        applyMatchlabEpisodes(matched,&cl)
+        imdb,_,_:=strings.Cut(*matched.SIDStart,":")
         contentType:=cl.ContentType.ContentType
         if contentType!=model.ContentTypeTvShow&&contentType!=model.ContentTypeMovie {
             return cl,classification.ErrUnmatched
