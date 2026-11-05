@@ -27,7 +27,9 @@ type Result struct {
 func New(params Params) Result {
 	lc := lazy.New(func() (Compiler, error) {
 		matchlab, matchlabErr := matchlabFromEnvironment()
-		if matchlabErr != nil { return nil, matchlabErr }
+		if matchlabErr != nil {
+			return nil, matchlabErr
+		}
 		s, err := params.Search.Get()
 		if err != nil {
 			return nil, err
@@ -48,7 +50,7 @@ func New(params Params) Result {
 					search:    localSearch{s},
 					semaphore: make(chan struct{}, 1),
 				},
-				tmdbClient: tmdbClient,
+				tmdbClient:     tmdbClient,
 				matchlabClient: matchlab,
 			},
 		}, nil
