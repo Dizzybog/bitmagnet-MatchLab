@@ -60,7 +60,7 @@ func testMatchLab(t *testing.T, handler http.HandlerFunc) matchlab.Client {
 const (
 	matchlabTestMatchPath = "/match"
 	matchlabTestParsePath = "/parse"
-	matchlabTestIMDbID = "tt1234567"
+	matchlabTestIMDbID    = "tt1234567"
 )
 
 func TestConfiguredMatchLabDisablesAllLocalAndTMDBTitleSearch(t *testing.T) {
