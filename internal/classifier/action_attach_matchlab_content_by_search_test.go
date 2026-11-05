@@ -102,6 +102,20 @@ func TestMatchlabMatchOverridesEpisodes(t *testing.T) {
 	}
 }
 
+func TestMatchlabSeasonOverridesParsedEpisodes(t *testing.T) {
+	t.Parallel()
+
+	start, end := "tt1234567:2", "tt1234567:2"
+	cl := classification.Result{ContentAttributes: classification.ContentAttributes{
+		Episodes: model.Episodes{1: map[int]struct{}{8: {}}},
+	}}
+
+	applyMatchlabEpisodes(matchlabResponse{SIDStart: &start, SIDEnd: &end}, &cl)
+	if len(cl.Episodes) != 1 || !cl.Episodes.HasEpisode(2, 8) || cl.Episodes.HasEpisode(1, 8) {
+		t.Fatalf("expected MatchLab season to replace parsed episodes: %v", cl.Episodes)
+	}
+}
+
 func TestMatchlabClassificationFromCoordinates(t *testing.T) {
 	t.Parallel()
 
