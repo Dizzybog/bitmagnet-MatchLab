@@ -39,7 +39,8 @@ func newMatchlabClient(raw string) (*matchlabClient, error) {
 		return nil, nil
 	}
 	u, err := url.Parse(raw)
-	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") ||
+		u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return nil, fmt.Errorf("MATCHLAB_URL must be an HTTP(S) base URL without credentials, query or fragment")
 	}
 	u.Path = strings.TrimRight(u.Path, "/") + "/match"
