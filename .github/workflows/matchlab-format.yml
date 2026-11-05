@@ -1,0 +1,26 @@
+name: Temporary MatchLab code formatter
+on:
+  push:
+    branches:
+      - feat/matchlab-native-integration
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/matchlab-native-integration
+          persist-credentials: true
+      - name: Format changed Go files
+        shell: bash
+        run: |
+          gofmt -w internal/matchlab internal/classifier/action_attach_matchlab_content_by_search.go internal/classifier/action_attach_matchlab_content_by_search_test.go internal/classifier/matchlab_integration_test.go internal/classifier/dependencies.go internal/classifier/factory.go internal/classifier/source_provider.go internal/classifier/runner.go internal/app/appfx/module.go internal/queue/handler/handler.go internal/queue/handler/handler_test.go internal/queue/server/server.go
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -u
+            git commit -m "style: gofmt MatchLab integration and queue changes"
+            git push origin HEAD:feat/matchlab-native-integration
+          fi
