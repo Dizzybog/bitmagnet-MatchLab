@@ -61,7 +61,9 @@ func (m *matchlabClient) match(ctx context.Context,title string)(string,bool,err
     }
     if payload.SIDStart==nil||payload.SIDEnd==nil{return "",false,nil}
     start,end:=*payload.SIDStart,*payload.SIDEnd
-    if start!=end{return "",false,nil}
+    if end=="" {return "",false,nil}
+    endID,_,_:=strings.Cut(end,":")
+    if endID!=strings.SplitN(start,":",2)[0]{return "",false,nil}
     imdb,_,_:=strings.Cut(start,":")
     if len(imdb)<9||len(imdb)>12||!strings.HasPrefix(imdb,"tt") {return "",false,errors.New("invalid IMDb identifier from MatchLab")}
     for _,digit:=range imdb[2:] {if digit<'0'||digit>'9'{return "",false,errors.New("invalid IMDb identifier from MatchLab")}}
@@ -80,7 +82,7 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext)(ac
     if _,err:=attachMatchlabContentBySearchPayloadSpec.Unmarshal(ctx);err!=nil{return action{},ctx.error(err)}
     return action{run:func(ctx executionContext)(classification.Result,error){
         cl:=ctx.result
-        if ctx.matchlabClient==nil||!cl.BaseTitle.Valid{return cl,classification.ErrUnmatched}
+        if ctx.matchlabClient==nil{return cl,classification.ErrUnmatched}
         imdb,found,err:=ctx.matchlabClient.match(ctx.Context,ctx.torrent.Name)
         if err!=nil{return cl,classification.ErrUnmatched}
         if !found{return cl,classification.ErrUnmatched}
@@ -88,8 +90,24 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext)(ac
         if contentType!=model.ContentTypeTvShow&&contentType!=model.ContentTypeMovie {
             return cl,classification.ErrUnmatched
         }
-        content:=model.Content{
-            Type:contentType,Source:model.SourceImdb,ID:imdb,Title:cl.BaseTitle.String,
+        // MatchLab alone determines identity. TMDB is queried strictly by IMDb ID
+        // for richer metadata; no title-based TMDB search is performed.
+        content:=model.Content{Type:contentType,Source:model.SourceImdb,ID:imdb,Title:ctx.torrent.Name}
+        if cl.BaseTitle.Valid {content.Title=cl.BaseTitle.String}
+        ref:=model.ContentRef{Type:contentType,Source:model.SourceImdb,ID:imdb}
+        if ctx.tmdbClient!=nil {
+            if tmdbID,lookupErr:=ctx.tmdbGetTMDBIDByExternalID(ref);lookupErr==nil {
+                var details model.Content
+                var detailsErr error
+                if contentType==model.ContentTypeTvShow {
+                    details,detailsErr=ctx.tmdbGetTVShowByTMDBID(tmdbID)
+                } else {
+                    details,detailsErr=ctx.tmdbGetMovieByTMDBID(tmdbID)
+                }
+                if detailsErr==nil {
+                    content=details
+                }
+            }
         }
         cl.AttachContent(&content)
         return cl,nil
