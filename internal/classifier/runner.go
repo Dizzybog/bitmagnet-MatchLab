@@ -50,9 +50,6 @@ func (r runner) Run(ctx context.Context, workflow string, flags Flags, t model.T
 		cfs["matchlab_enabled"] = types.Bool(true)
 		cfs["local_search_enabled"] = types.Bool(false)
 	}
-	if !r.tmdbEnabled {
-		cfs["tmdb_enabled"] = types.Bool(false)
-	}
 
 	cl := classification.Result{}
 	if !t.Hint.IsNil() {
