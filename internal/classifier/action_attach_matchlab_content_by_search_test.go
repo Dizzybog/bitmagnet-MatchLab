@@ -19,7 +19,7 @@ func TestMatchlabClient(t *testing.T) {
 			t.Errorf("unexpected MatchLab request: %s", r.URL.String())
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567:1:2","asid_start":null,"asid_end":null}`)
+		_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567:1:2"}`)
 	}))
 	defer server.Close()
 	client, err := newMatchlabClient(server.URL)
@@ -50,7 +50,7 @@ func TestMatchlabRangeAndInvalidConfig(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:1","sid_end":"tt1234567:1:5","asid_start":null,"asid_end":null}`)
+		_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:1","sid_end":"tt1234567:1:5"}`)
 	}))
 	defer server.Close()
 	client, _ := newMatchlabClient(server.URL)
@@ -113,40 +113,42 @@ func TestMatchlabClassificationFromCoordinates(t *testing.T) {
 		found    bool
 	}{
 		{
-			name: "episode",
+			name     "episode",
 			response: matchlabResponse{SIDStart: ptr("tt1234567:2:3"), SIDEnd: ptr("tt1234567:2:4")},
-			want: model.ContentTypeTvShow,
-			found: true,
+			want     model.ContentTypeTvShow,
+			found    true,
 		},
 		{
-			name: "season",
+			name     "season",
 			response: matchlabResponse{SIDStart: ptr("tt1234567:2"), SIDEnd: ptr("tt1234567:2")},
-			want: model.ContentTypeTvShow,
-			found: true,
+			want     model.ContentTypeTvShow,
+			found    true,
 		},
 		{
-			name: "anime",
-			response: matchlabResponse{SIDStart: ptr("tt1234567"), SIDEnd: ptr("tt1234567"), ASIDStart: ptr("1234:1")},
-			want: model.ContentTypeTvShow,
-			found: true,
+			name     "anime",
+			response: matchlabResponse{
+				SIDStart: ptr("tt1234567"), SIDEnd: ptr("tt1234567"), ASIDStart: ptr("1234:1"),
+			},
+			want     model.ContentTypeTvShow,
+			found    true,
 		},
 		{
-			name: "anime only",
+			name     "anime only",
 			response: matchlabResponse{ASIDStart: ptr("1234:1"), ASIDEnd: ptr("1234:1")},
-			want: model.ContentTypeTvShow,
-			found: true,
+			want     model.ContentTypeTvShow,
+			found    true,
 		},
 		{
-			name: "film",
+			name     "film",
 			response: matchlabResponse{SIDStart: ptr("tt1234567"), SIDEnd: ptr("tt1234567")},
-			want: model.ContentTypeMovie,
-			found: true,
+			want     model.ContentTypeMovie,
+			found    true,
 		},
 		{
-			name: "empty",
+			name     "empty",
 			response: matchlabResponse{},
-			want: "",
-			found: false,
+			want     "",
+			found    false,
 		},
 	}
 	for _, tc := range cases {
