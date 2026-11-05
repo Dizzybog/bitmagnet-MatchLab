@@ -9,7 +9,6 @@ import (
     "net/http"
     "net/url"
     "os"
-    "strconv"
     "strings"
     "time"
 
@@ -121,18 +120,6 @@ func (m *matchlabClient) overrideParsed(ctx context.Context,title string,cl *cla
         }
         if len(episodes)>0 {cl.Episodes=episodes}
     }
-}
-
-func overrideSIDCoordinates(sidStart,sidEnd string,cl *classification.Result){
-    start:=strings.Split(sidStart,":")
-    end:=strings.Split(sidEnd,":")
-    if len(start)!=3||len(end)!=3||start[0]!=end[0]{return}
-    s1,e1:=strconv.Atoi(start[1]);p1,ep1:=strconv.Atoi(start[2])
-    s2,e2:=strconv.Atoi(end[1]);p2,ep2:=strconv.Atoi(end[2])
-    if e1!=nil||ep1!=nil||e2!=nil||ep2!=nil||s1<0||s1>9999||s2!=s1||p1<0||p2<p1||p2>99999||p2-p1>1000{return}
-    episodes:=make(model.Episodes)
-    for ep:=p1;ep<=p2;ep++ {episodes.AddEpisode(s1,ep)}
-    cl.Episodes=episodes
 }
 
 const attachMatchlabContentBySearchName="attach_matchlab_content_by_search"
