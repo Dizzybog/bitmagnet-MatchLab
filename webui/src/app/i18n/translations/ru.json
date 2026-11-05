@@ -123,6 +123,7 @@
     "components": {
       "dht": "DHT",
       "postgres": "Postgres",
+      "matchlab": "MatchLab",
       "tmdb": "TMDB"
     },
     "dismiss": "Закрыть",
