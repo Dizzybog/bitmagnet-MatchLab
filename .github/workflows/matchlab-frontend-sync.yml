@@ -1,0 +1,37 @@
+name: Temporary MatchLab frontend asset sync
+on:
+  push:
+    branches:
+      - feat/matchlab-native-integration
+permissions:
+  contents: write
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/matchlab-native-integration
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: webui/package-lock.json
+      - name: Install frontend packages
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "1"
+        run: npm ci --prefix webui
+      - name: Regenerate translations and embedded dashboard
+        run: |
+          npm run i18n:extract --prefix webui
+          npm run build --prefix webui
+      - name: Commit generated artifacts
+        run: |
+          git add -A webui/src/app/i18n/translations webui/dist
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "build(webui): regenerate MatchLab health translations and embedded dashboard"
+            git push origin HEAD:feat/matchlab-native-integration
+          fi
