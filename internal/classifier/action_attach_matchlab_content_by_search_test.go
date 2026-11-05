@@ -6,6 +6,9 @@ import (
     "net/http"
     "net/http/httptest"
     "testing"
+
+    "github.com/bitmagnet-io/bitmagnet/internal/classifier/classification"
+    "github.com/bitmagnet-io/bitmagnet/internal/model"
 )
 
 func TestMatchlabClient(t *testing.T){
@@ -43,4 +46,21 @@ func TestMatchlabRangeAndInvalidConfig(t *testing.T){
     if err!=nil||!found{t.Fatalf("expected IMDb identity from same-title range: %v, %v",found,err)}
     if _,err:=newMatchlabClient("ftp://example.org");err==nil{t.Fatal("expected invalid scheme")}
     if client,err:=newMatchlabClient("");err!=nil||client!=nil{t.Fatal("empty URL must disable MatchLab")}
+}
+
+func TestMatchlabParserOverridesExistingFields(t *testing.T){
+    server:=httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
+        if r.URL.Path!="/parse"{t.Errorf("unexpected path: %s",r.URL.Path)}
+        fmt.Fprint(w,`{"title":"Example Show","year":2024,"seasons":[2],"episodes":[3,4]}`)
+    }))
+    defer server.Close()
+    client,err:=newMatchlabClient(server.URL)
+    if err!=nil{t.Fatal(err)}
+    cl:=classification.Result{}
+    cl.BaseTitle=model.NewNullString("Incorrect Title")
+    cl.Episodes=model.Episodes{1:map[int]struct{}{8:{}}}
+    client.overrideParsed(context.Background(),"Example.Show.S02E03-E04",&cl)
+    if cl.BaseTitle.String!="Example Show"||cl.Date.Year!=2024||!cl.Episodes.HasEpisode(2,3)||!cl.Episodes.HasEpisode(2,4)||cl.Episodes.HasEpisode(1,8){
+        t.Fatalf("parser overrides not applied: %+v",cl)
+    }
 }
