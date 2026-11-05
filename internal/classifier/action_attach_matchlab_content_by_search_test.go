@@ -33,14 +33,14 @@ func TestMatchlabUnmatched(t *testing.T){
     if err!=nil||found{t.Fatalf("expected no match: %v, %v",found,err)}
 }
 
-func TestMatchlabRejectsRangeAndInvalidConfig(t *testing.T){
+func TestMatchlabRangeAndInvalidConfig(t *testing.T){
     server:=httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
         fmt.Fprint(w,`{"sid_start":"tt1234567:1:1","sid_end":"tt1234567:1:5","asid_start":null,"asid_end":null}`)
     }))
     defer server.Close()
     client,_:=newMatchlabClient(server.URL)
     _,found,err:=client.match(context.Background(),"Pack")
-    if err!=nil||found{t.Fatalf("expected no ambiguous range match: %v, %v",found,err)}
+    if err!=nil||!found{t.Fatalf("expected IMDb identity from same-title range: %v, %v",found,err)}
     if _,err:=newMatchlabClient("ftp://example.org");err==nil{t.Fatal("expected invalid scheme")}
     if client,err:=newMatchlabClient("");err!=nil||client!=nil{t.Fatal("empty URL must disable MatchLab")}
 }
