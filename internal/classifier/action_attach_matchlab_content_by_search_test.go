@@ -139,12 +139,12 @@ func TestMatchlabClassificationFromCoordinates(t *testing.T) {
 			found:    true,
 		},
 		{
-			name:     "anime",
+			name: "anime",
 			response: matchlabResponse{
 				SIDStart: ptr("tt1234567"), SIDEnd: ptr("tt1234567"), ASIDStart: ptr("1234:1"),
 			},
-			want:     model.ContentTypeTvShow,
-			found:    true,
+			want:  model.ContentTypeTvShow,
+			found: true,
 		},
 		{
 			name:     "anime only",
