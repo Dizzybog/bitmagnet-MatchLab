@@ -172,3 +172,39 @@ func TestMatchLabIMDbIdentitySurvivesTMDBEnrichment(t *testing.T) {
 		t.Fatalf("TMDB external link missing: %+v", result.Content.Attributes)
 	}
 }
+
+func TestMatchLabBlocksDirectTitleSearchActionsInCustomWorkflows(t *testing.T) {
+	t.Parallel()
+	api, err := matchlab.NewClient(matchlab.Config{
+		URL: "http://127.0.0.1:1", TimeoutSeconds: 2, MaxConcurrent: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		def  actionDefinition
+	}{
+		{"local title search", attachLocalContentBySearchAction{}},
+		{"TMDB title search", attachTmdbContentBySearchAction{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			compiled, compileErr := tc.def.compileAction(compilerContext{source: tc.def.name()})
+			if compileErr != nil {
+				t.Fatal(compileErr)
+			}
+			_, runErr := compiled.run(executionContext{
+				Context: context.Background(),
+				dependencies: dependencies{matchlabClient: api},
+				result: classification.Result{
+					BaseTitle:   model.NewNullString("Example Movie"),
+					ContentType: model.NewNullContentType(model.ContentTypeMovie),
+				},
+			})
+			if !errors.Is(runErr, classification.ErrUnmatched) {
+				t.Fatalf("direct search action bypassed configured MatchLab: %v", runErr)
+			}
+		})
+	}
+}
