@@ -22,8 +22,8 @@ func TestMatchlabClient(t *testing.T){
     defer server.Close()
     client,err:=newMatchlabClient(server.URL)
     if err!=nil{t.Fatal(err)}
-    imdb,found,err:=client.match(context.Background(),"Example.Show.S01E02")
-    if err!=nil||!found||imdb!="tt1234567"{t.Fatalf("got %q, %v, %v",imdb,found,err)}
+    matched,found,err:=client.match(context.Background(),"Example.Show.S01E02")
+    if err!=nil||!found||matched.SIDStart==nil||*matched.SIDStart!="tt1234567"{t.Fatalf("got %q, %v, %v",matched,found,err)}
 }
 
 func TestMatchlabUnmatched(t *testing.T){
@@ -60,7 +60,18 @@ func TestMatchlabParserOverridesExistingFields(t *testing.T){
     cl.BaseTitle=model.NewNullString("Incorrect Title")
     cl.Episodes=model.Episodes{1:map[int]struct{}{8:{}}}
     client.overrideParsed(context.Background(),"Example.Show.S02E03-E04",&cl)
-    if cl.BaseTitle.String!="Example Show"||cl.Date.Year!=2024||!cl.Episodes.HasEpisode(2,3)||!cl.Episodes.HasEpisode(2,4)||cl.Episodes.HasEpisode(1,8){
+    if cl.BaseTitle.String!="Example Show"||cl.Date.Year!=2024||!cl.Episodes.HasEpisode(1,8){
         t.Fatalf("parser overrides not applied: %+v",cl)
+    }
+}
+
+func TestMatchlabMatchOverridesEpisodes(t *testing.T){
+    start,end:="tt1234567:2:3","tt1234567:2:4"
+    cl:=classification.Result{ContentAttributes:classification.ContentAttributes{
+        Episodes:model.Episodes{1:map[int]struct{}{8:{}}},
+    }}
+    applyMatchlabEpisodes(matchlabResponse{SIDStart:&start,SIDEnd:&end},&cl)
+    if !cl.Episodes.HasEpisode(2,3)||!cl.Episodes.HasEpisode(2,4)||cl.Episodes.HasEpisode(1,8){
+        t.Fatalf("expected MatchLab SID episode override: %v",cl.Episodes)
     }
 }
