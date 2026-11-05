@@ -109,46 +109,46 @@ func TestMatchlabClassificationFromCoordinates(t *testing.T) {
 	cases := []struct {
 		name     string
 		response matchlabResponse
-		want:    model.ContentType
+		want:     model.ContentType
 		found    bool
 	}{
 		{
-			name:    "episode",
+			name:     "episode",
 			response: matchlabResponse{SIDStart: ptr("tt1234567:2:3"), SIDEnd: ptr("tt1234567:2:4")},
-			want:    model.ContentTypeTvShow,
-			found:   true,
+			want:     model.ContentTypeTvShow,
+			found:    true,
 		},
 		{
-			name:    "season",
+			name:     "season",
 			response: matchlabResponse{SIDStart: ptr("tt1234567:2"), SIDEnd: ptr("tt1234567:2")},
-			want:    model.ContentTypeTvShow,
-			found:   true,
+			want:     model.ContentTypeTvShow,
+			found:    true,
 		},
 		{
-			name:    "anime",
+			name:     "anime",
 			response: matchlabResponse{
 				SIDStart: ptr("tt1234567"), SIDEnd: ptr("tt1234567"), ASIDStart: ptr("1234:1"),
 			},
-			want:    model.ContentTypeTvShow,
-			found:   true,
+			want:     model.ContentTypeTvShow,
+			found:    true,
 		},
 		{
-			name:    "anime only",
+			name:     "anime only",
 			response: matchlabResponse{ASIDStart: ptr("1234:1"), ASIDEnd: ptr("1234:1")},
-			want:    model.ContentTypeTvShow,
-			found:   true,
+			want:     model.ContentTypeTvShow,
+			found:    true,
 		},
 		{
-			name:    "film",
+			name:     "film",
 			response: matchlabResponse{SIDStart: ptr("tt1234567"), SIDEnd: ptr("tt1234567")},
-			want:    model.ContentTypeMovie,
-			found:   true,
+			want:     model.ContentTypeMovie,
+			found:    true,
 		},
 		{
-			name:    "empty",
+			name:     "empty",
 			response: matchlabResponse{},
-			want:    "",
-			found:   false,
+			want:     "",
+			found:    false,
 		},
 	}
 	for _, tc := range cases {
