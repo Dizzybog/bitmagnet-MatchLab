@@ -2,6 +2,7 @@ package classifier
 
 import (
 	"os"
+	"strings"
 
 	"github.com/adrg/xdg"
 	"github.com/bitmagnet-io/bitmagnet/internal/tmdb"
@@ -17,6 +18,7 @@ func newSourceProvider(config Config, tmdbConfig tmdb.Config) sourceProvider {
 			configSourceProvider{
 				config:      config,
 				tmdbEnabled: tmdbConfig.Enabled,
+				matchlabEnabled: strings.TrimSpace(os.Getenv("MATCHLAB_URL")) != "",
 			},
 		},
 	}
@@ -119,6 +121,7 @@ func (cwdSourceProvider) source() ([]byte, error) {
 type configSourceProvider struct {
 	config      Config
 	tmdbEnabled bool
+	matchlabEnabled bool
 }
 
 func (c configSourceProvider) source() (Source, error) {
@@ -131,6 +134,7 @@ func (c configSourceProvider) source() (Source, error) {
 		fs["delete_xxx"] = true
 	}
 
+	fs["matchlab_enabled"] = c.matchlabEnabled
 	if !c.tmdbEnabled {
 		fs["tmdb_enabled"] = false
 	}
