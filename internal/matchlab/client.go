@@ -51,7 +51,7 @@ func (p *Parsed) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(value.Year, &raw); err != nil {
 		return fmt.Errorf("invalid MatchLab year: %w", err)
 	}
-	if number, err = strconv.Atoi(raw); err == nil {
+	if number, err := strconv.Atoi(raw); err == nil {
 		p.Year = &number
 	}
 	return nil
@@ -130,7 +130,7 @@ func (c *httpClient) request(ctx context.Context, path string, title string, out
 	}
 	decoder := json.NewDecoder(io.LimitReader(resp.Body, 32*1024))
 	if err := decoder.Decode(out); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidResponse, err)
+		return fmt.Errorf("%w: %w", ErrInvalidResponse, err)
 	}
 	return nil
 }

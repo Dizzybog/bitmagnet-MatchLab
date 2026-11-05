@@ -10,6 +10,7 @@ import (
 )
 
 func TestExecPassesDeadlineIntoJob(t *testing.T) {
+	t.Parallel()
 	done := make(chan error, 1)
 	h := New("test", func(ctx context.Context, _ model.QueueJob) error {
 		<-ctx.Done()
@@ -31,6 +32,7 @@ func TestExecPassesDeadlineIntoJob(t *testing.T) {
 }
 
 func TestExecReturnsHandlerError(t *testing.T) {
+	t.Parallel()
 	sentinel := errors.New("temporarily unavailable")
 	h := New("test", func(context.Context, model.QueueJob) error { return sentinel })
 	if err := Exec(context.Background(), h, model.QueueJob{}); !errors.Is(err, sentinel) {
