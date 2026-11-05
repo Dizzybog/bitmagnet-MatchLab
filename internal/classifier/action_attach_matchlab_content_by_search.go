@@ -194,7 +194,17 @@ func applyMatchlabEpisodes(payload matchlabResponse, cl *classification.Result) 
 	}
 	start := strings.Split(*payload.SIDStart, ":")
 	end := strings.Split(*payload.SIDEnd, ":")
-	if len(start) != 3 || len(end) != 3 || start[0] != end[0] {
+	if start[0] != end[0] {
+		return
+	}
+	if len(start) == 2 && len(end) == 2 && start[1] == end[1] {
+		season, err := strconv.Atoi(start[1])
+		if err == nil && season >= 0 && season <= 9999 {
+			cl.Episodes = make(model.Episodes).AddSeason(season)
+		}
+		return
+	}
+	if len(start) != 3 || len(end) != 3 {
 		return
 	}
 	s1, err1 := strconv.Atoi(start[1])
