@@ -5,6 +5,7 @@ import (
     "encoding/json"
     "errors"
     "fmt"
+    "io"
     "net/http"
     "net/url"
     "os"
@@ -55,7 +56,7 @@ func (m *matchlabClient) match(ctx context.Context,title string)(string,bool,err
     defer res.Body.Close()
     if res.StatusCode!=http.StatusOK{return "",false,fmt.Errorf("MatchLab HTTP %d",res.StatusCode)}
     var payload matchlabResponse
-    if err=json.NewDecoder(http.MaxBytesReader(nil,res.Body,16*1024)).Decode(&payload);err!=nil {
+    if err=json.NewDecoder(io.LimitReader(res.Body,16*1024)).Decode(&payload);err!=nil {
         return "",false,fmt.Errorf("invalid MatchLab response: %w",err)
     }
     if payload.SIDStart==nil||payload.SIDEnd==nil{return "",false,nil}
@@ -81,7 +82,7 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext)(ac
         cl:=ctx.result
         if ctx.matchlabClient==nil||!cl.BaseTitle.Valid{return cl,classification.ErrUnmatched}
         imdb,found,err:=ctx.matchlabClient.match(ctx.Context,ctx.torrent.Name)
-        if err!=nil{return cl,err}
+        if err!=nil{return cl,classification.ErrUnmatched}
         if !found{return cl,classification.ErrUnmatched}
         contentType:=cl.ContentType.ContentType
         if contentType!=model.ContentTypeTvShow&&contentType!=model.ContentTypeMovie {
