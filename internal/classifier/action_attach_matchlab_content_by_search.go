@@ -63,17 +63,49 @@ func (m *matchlabClient) match(ctx context.Context,title string)(matchlabRespons
     if err=json.NewDecoder(io.LimitReader(res.Body,16*1024)).Decode(&payload);err!=nil {
         return matchlabResponse{},false,fmt.Errorf("invalid MatchLab response: %w",err)
     }
+    if hasMatchlabASID(payload) {
+        // AniDB coordinates identify a series even if IMDb coordinates are absent.
+        return payload,true,nil
+    }
     if payload.SIDStart==nil||payload.SIDEnd==nil{return matchlabResponse{},false,nil}
-    start,end:=*payload.SIDStart,*payload.SIDEnd
-    if end=="" {return matchlabResponse{},false,nil}
+    start,end:=strings.TrimSpace(*payload.SIDStart),strings.TrimSpace(*payload.SIDEnd)
+    if start==""||end==""{return matchlabResponse{},false,nil}
     endID,_,_:=strings.Cut(end,":")
-    if endID!=strings.SplitN(start,":",2)[0]{return matchlabResponse{},false,nil}
     imdb,_,_:=strings.Cut(start,":")
-    if len(imdb)<9||len(imdb)>12||!strings.HasPrefix(imdb,"tt") {return matchlabResponse{},false,errors.New("invalid IMDb identifier from MatchLab")}
-    for _,digit:=range imdb[2:] {if digit<'0'||digit>'9'{return matchlabResponse{},false,errors.New("invalid IMDb identifier from MatchLab")}}
+    if endID!=imdb{return matchlabResponse{},false,nil}
+    if !validMatchlabIMDb(imdb){return matchlabResponse{},false,errors.New("invalid IMDb identifier from MatchLab")}
     return payload,true,nil
 }
 
+
+func validMatchlabIMDb(imdb string)bool{
+    if len(imdb)<9||len(imdb)>12||!strings.HasPrefix(imdb,"tt"){return false}
+    for _,digit:=range imdb[2:]{if digit<'0'||digit>'9'{return false}}
+    return true
+}
+
+func hasMatchlabASID(p matchlabResponse)bool{
+    return (p.ASIDStart!=nil&&strings.TrimSpace(*p.ASIDStart)!="")||
+        (p.ASIDEnd!=nil&&strings.TrimSpace(*p.ASIDEnd)!="")
+}
+
+// Classification precedence: IMDb episode coordinates, then AniDB,
+// then a bare IMDb title. The existing Bitmagnet parser is not authoritative.
+func matchlabContentType(p matchlabResponse)(model.ContentType,bool){
+    if p.SIDStart!=nil&&strings.TrimSpace(*p.SIDStart)!=""{
+        sid:=strings.Split(strings.TrimSpace(*p.SIDStart),":")
+        if len(sid)>1{return model.ContentTypeTvShow,true}
+    }
+    if p.SIDEnd!=nil&&strings.TrimSpace(*p.SIDEnd)!=""{
+        sid:=strings.Split(strings.TrimSpace(*p.SIDEnd),":")
+        if len(sid)>1{return model.ContentTypeTvShow,true}
+    }
+    if hasMatchlabASID(p){return model.ContentTypeTvShow,true}
+    if p.SIDStart!=nil&&validMatchlabIMDb(strings.TrimSpace(*p.SIDStart)){
+        return model.ContentTypeMovie,true
+    }
+    return "",false
+}
 
 type matchlabParsed struct {
     Title string `json:"title"`
@@ -139,12 +171,20 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext)(ac
         if err!=nil{return cl,classification.ErrUnmatched}
         if !found{return cl,classification.ErrUnmatched}
         ctx.matchlabClient.overrideParsed(ctx.Context,ctx.torrent.Name,&cl)
-        applyMatchlabEpisodes(matched,&cl)
-        imdb,_,_:=strings.Cut(*matched.SIDStart,":")
-        contentType:=cl.ContentType.ContentType
-        if contentType!=model.ContentTypeTvShow&&contentType!=model.ContentTypeMovie {
-            return cl,classification.ErrUnmatched
+        contentType,typed:=matchlabContentType(matched)
+        if !typed{return cl,classification.ErrUnmatched}
+        cl.ContentType=model.NewNullContentType(contentType)
+        if contentType==model.ContentTypeTvShow {
+            applyMatchlabEpisodes(matched,&cl)
+        } else {
+            cl.Episodes=nil
         }
+        // An AniDB-only match can classify the torrent as a series, but it
+        // cannot be enriched by IMDb ID until MatchLab supplies an SID.
+        if matched.SIDStart==nil||!validMatchlabIMDb(strings.Split(*matched.SIDStart,":")[0]){
+            return cl,nil
+        }
+        imdb,_,_:=strings.Cut(*matched.SIDStart,":")
         // MatchLab alone determines identity. TMDB is queried strictly by IMDb ID
         // for richer metadata; no title-based TMDB search is performed.
         content:=model.Content{Type:contentType,Source:model.SourceImdb,ID:imdb,Title:ctx.torrent.Name}
