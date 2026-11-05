@@ -14,6 +14,12 @@ services:
       MATCHLAB_URL: "https://matchlab.notprod.fyi"
 ```
 
+Once the changes are merged into `main`, the fork's GitHub Actions workflow
+builds and publishes `ghcr.io/dizzybog/bitmagnet-matchlab:latest` for
+`linux/amd64` and `linux/arm64`. Pull requests build the image without
+publishing it. The GHCR package may need to be made public in GitHub's
+package settings before unauthenticated pulls work.
+
 The URL must be reachable **from the bitmagnet container**. You can also use
 a private Docker-network address such as `http://matchlab:8765` if both
 containers share a network. No MatchLab API key is needed.
