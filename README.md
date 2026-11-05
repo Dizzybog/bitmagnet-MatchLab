@@ -60,13 +60,13 @@ Use **Queues** to inspect failed/retried matching jobs and enqueue rematching fo
 
 Use environment variables, `config.yml` or Bitmagnet's normal configuration resolution.
 
-| Environment variable | Config key | Default | Purpose |
-| --- | --- | --- | --- |
-| `MATCHLAB_URL` | `matchlab.url` | empty (disabled) | HTTP(S) base URL |
-| `MATCHLAB_TIMEOUT_SECONDS` | `matchlab.timeout_seconds` | `8` | Per-request timeout in seconds (1–120) |
-| `MATCHLAB_MAX_CONCURRENT` | `matchlab.max_concurrent` | `4` | Shared outbound request limit (1–64) |
-| `TMDB_ENABLED` | `tmdb.enabled` | `true` | TMDB metadata enrichment; does not control MatchLab identity |
-| `CLASSIFIER_CONCURRENCY` | `classifier.concurrency` | `10` | Overall classifier concurrency |
+| Environment variable       | Config key                 | Default          | Purpose                                                      |
+| -------------------------- | -------------------------- | ---------------- | ------------------------------------------------------------ |
+| `MATCHLAB_URL`             | `matchlab.url`             | empty (disabled) | HTTP(S) base URL                                             |
+| `MATCHLAB_TIMEOUT_SECONDS` | `matchlab.timeout_seconds` | `8`              | Per-request timeout in seconds (1–120)                       |
+| `MATCHLAB_MAX_CONCURRENT`  | `matchlab.max_concurrent`  | `4`              | Shared outbound request limit (1–64)                         |
+| `TMDB_ENABLED`             | `tmdb.enabled`             | `true`           | TMDB metadata enrichment; does not control MatchLab identity |
+| `CLASSIFIER_CONCURRENCY`   | `classifier.concurrency`   | `10`             | Overall classifier concurrency                               |
 
 Example YAML:
 
