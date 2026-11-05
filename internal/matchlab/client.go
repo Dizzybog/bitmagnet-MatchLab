@@ -27,6 +27,30 @@ type Parsed struct {
     Year *int `json:"year"`
 }
 
+// Torrent title parsers may encode year as a JSON number or a string.
+// Do not silently discard otherwise valid title metadata on type mismatch.
+func (p *Parsed) UnmarshalJSON(data []byte) error {
+    var value struct {
+        Title string `json:"title"`
+        Year json.RawMessage `json:"year"`
+    }
+    if err := json.Unmarshal(data, &value); err != nil { return err }
+    p.Title = value.Title
+    p.Year = nil
+    if len(value.Year) == 0 || string(value.Year) == "null" { return nil }
+    var number int
+    if err := json.Unmarshal(value.Year, &number); err == nil {
+        p.Year = &number
+        return nil
+    }
+    var raw string
+    if err := json.Unmarshal(value.Year, &raw); err != nil { return fmt.Errorf("invalid MatchLab year: %w", err) }
+    if number, err = strconv.Atoi(raw); err == nil {
+        p.Year = &number
+    }
+    return nil
+}
+
 type Client interface {
     Match(ctx context.Context, title string) (Response, bool, error)
     Parse(ctx context.Context, title string) (Parsed, error)
