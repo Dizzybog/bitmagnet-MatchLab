@@ -16,8 +16,8 @@ func newSourceProvider(config Config, tmdbConfig tmdb.Config) sourceProvider {
 			yamlSourceProvider{rawSourceProvider: xdgSourceProvider{}},
 			yamlSourceProvider{rawSourceProvider: cwdSourceProvider{}},
 			configSourceProvider{
-				config:      config,
-				tmdbEnabled: tmdbConfig.Enabled,
+				config:          config,
+				tmdbEnabled:     tmdbConfig.Enabled,
 				matchlabEnabled: strings.TrimSpace(os.Getenv("MATCHLAB_URL")) != "",
 			},
 		},
@@ -119,8 +119,8 @@ func (cwdSourceProvider) source() ([]byte, error) {
 }
 
 type configSourceProvider struct {
-	config      Config
-	tmdbEnabled bool
+	config          Config
+	tmdbEnabled     bool
 	matchlabEnabled bool
 }
 
