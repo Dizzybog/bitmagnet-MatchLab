@@ -10,6 +10,6 @@ type dependencies struct {
 	search         LocalSearch
 	tmdbClient     tmdb.Client
 	matchlabClient matchlab.Client
-	tmdbEnabled bool
-	logger *zap.SugaredLogger
+	tmdbEnabled    bool
+	logger         *zap.SugaredLogger
 }

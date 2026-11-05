@@ -85,38 +85,40 @@ func New(queue string, f Func, opts ...Option) (h Handler) {
 // for the result. A buffered result channel cannot strand a finished goroutine
 // after a timeout.
 func Exec(ctx context.Context, handler Handler, job model.QueueJob) error {
-    deadlineCtx, cancel := context.WithTimeout(ctx, handler.JobTimeout)
-    defer cancel()
+	deadlineCtx, cancel := context.WithTimeout(ctx, handler.JobTimeout)
+	defer cancel()
 
-    result := make(chan error, 1)
-    go func() {
-        var runErr error
-        defer func() {
-            if panicValue := recover(); panicValue != nil {
-                log.Printf("recovering from a panic in the job handler:\n%s", debug.Stack())
-                _, file, line, ok := runtime.Caller(1)
-                if ok && strings.Contains(file, "runtime/") {
-                    _, file, line, ok = runtime.Caller(2)
-                }
-                if ok {
-                    runErr = fmt.Errorf("panic [%s:%d]: %v", file, line, panicValue)
-                } else {
-                    runErr = fmt.Errorf("panic: %v", panicValue)
-                }
-            }
-            result <- runErr
-        }()
-        runErr = handler.Handle(deadlineCtx, job)
-    }()
+	result := make(chan error, 1)
+	go func() {
+		var runErr error
+		defer func() {
+			if panicValue := recover(); panicValue != nil {
+				log.Printf("recovering from a panic in the job handler:\n%s", debug.Stack())
+				_, file, line, ok := runtime.Caller(1)
+				if ok && strings.Contains(file, "runtime/") {
+					_, file, line, ok = runtime.Caller(2)
+				}
+				if ok {
+					runErr = fmt.Errorf("panic [%s:%d]: %v", file, line, panicValue)
+				} else {
+					runErr = fmt.Errorf("panic: %v", panicValue)
+				}
+			}
+			result <- runErr
+		}()
+		runErr = handler.Handle(deadlineCtx, job)
+	}()
 
-    select {
-    case err := <-result:
-        if err != nil { return fmt.Errorf("job failed to process: %w", err) }
-        return nil
-    case <-deadlineCtx.Done():
-        if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
-            return fmt.Errorf("job exceeded its %s timeout: %w", handler.JobTimeout, deadlineCtx.Err())
-        }
-        return deadlineCtx.Err()
-    }
+	select {
+	case err := <-result:
+		if err != nil {
+			return fmt.Errorf("job failed to process: %w", err)
+		}
+		return nil
+	case <-deadlineCtx.Done():
+		if errors.Is(deadlineCtx.Err(), context.DeadlineExceeded) {
+			return fmt.Errorf("job exceeded its %s timeout: %w", handler.JobTimeout, deadlineCtx.Err())
+		}
+		return deadlineCtx.Err()
+	}
 }

@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/bitmagnet-io/bitmagnet/internal/classifier/classification"
-	"github.com/bitmagnet-io/bitmagnet/internal/model"
 	"github.com/bitmagnet-io/bitmagnet/internal/matchlab"
+	"github.com/bitmagnet-io/bitmagnet/internal/model"
 )
 
 func TestMatchlabClient(t *testing.T) {
@@ -178,5 +178,5 @@ func TestMatchlabClassificationFromCoordinates(t *testing.T) {
 }
 
 func newTestMatchlabClient(rawURL string) (matchlab.Client, error) {
-    return matchlab.NewClient(matchlab.Config{URL: rawURL, TimeoutSeconds: 8, MaxConcurrent: 4})
+	return matchlab.NewClient(matchlab.Config{URL: rawURL, TimeoutSeconds: 8, MaxConcurrent: 4})
 }

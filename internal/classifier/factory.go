@@ -6,20 +6,20 @@ import (
 	"github.com/bitmagnet-io/bitmagnet/internal/database/search"
 	"github.com/bitmagnet-io/bitmagnet/internal/lazy"
 	"github.com/bitmagnet-io/bitmagnet/internal/matchlab"
-	"go.uber.org/zap"
 	"github.com/bitmagnet-io/bitmagnet/internal/tmdb"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 type Params struct {
 	fx.In
-	Config     Config
-	TmdbConfig tmdb.Config
+	Config         Config
+	TmdbConfig     tmdb.Config
 	MatchlabConfig matchlab.Config
 	MatchlabClient lazy.Lazy[matchlab.Client]
-	Logger *zap.SugaredLogger
-	Search     lazy.Lazy[search.Search]
-	TmdbClient lazy.Lazy[tmdb.Client]
+	Logger         *zap.SugaredLogger
+	Search         lazy.Lazy[search.Search]
+	TmdbClient     lazy.Lazy[tmdb.Client]
 }
 
 type Result struct {
@@ -57,8 +57,8 @@ func New(params Params) Result {
 				},
 				tmdbClient:     tmdbClient,
 				matchlabClient: matchlabAPI,
-				tmdbEnabled: params.TmdbConfig.Enabled,
-				logger: params.Logger,
+				tmdbEnabled:    params.TmdbConfig.Enabled,
+				logger:         params.Logger,
 			},
 		}, nil
 	})
