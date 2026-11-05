@@ -109,7 +109,7 @@ func TestMatchlabClassificationFromCoordinates(t *testing.T) {
 	cases := []struct {
 		name     string
 		response matchlabResponse
-		want:     model.ContentType
+		want     model.ContentType
 		found    bool
 	}{
 		{
