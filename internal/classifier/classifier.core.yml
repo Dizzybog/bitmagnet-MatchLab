@@ -89,19 +89,19 @@ workflows:
             - parse_video_content
     # if content isn't already attached, and a base title has been parsed, then search for the content, either from the local `content` table or an API integration:
     - if_else:
-        condition: "!result.hasAttachedContent && result.hasBaseTitle"
+        condition: "!result.hasAttachedContent && (result.hasBaseTitle || flags.matchlab_enabled)"
         if_action:
           find_match:
             - if_else:
-                condition: "flags.local_search_enabled"
-                if_action: attach_local_content_by_search
-                else_action: unmatched
-            - if_else:
-                condition: "flags.apis_enabled"
+                condition: "flags.apis_enabled && flags.matchlab_enabled"
                 if_action: attach_matchlab_content_by_search
                 else_action: unmatched
             - if_else:
-                condition: "flags.apis_enabled && flags.tmdb_enabled"
+                condition: "flags.local_search_enabled && !flags.matchlab_enabled"
+                if_action: attach_local_content_by_search
+                else_action: unmatched
+            - if_else:
+                condition: "flags.apis_enabled && !flags.matchlab_enabled && flags.tmdb_enabled"
                 if_action: attach_tmdb_content_by_search
                 else_action: unmatched
     # delete specific content types based on the configured flags:
@@ -273,11 +273,13 @@ flag_definitions:
   local_search_enabled: bool
   apis_enabled: bool
   tmdb_enabled: bool
+  matchlab_enabled: bool
   delete_content_types: content_type_list
   delete_xxx: bool
 flags:
   local_search_enabled: true
   apis_enabled: true
   tmdb_enabled: true
+  matchlab_enabled: false
   delete_content_types: []
   delete_xxx: false
