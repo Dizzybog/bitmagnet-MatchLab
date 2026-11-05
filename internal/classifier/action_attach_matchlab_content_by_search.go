@@ -32,6 +32,7 @@ type matchlabResponse struct {
 	ASIDEnd   *string `json:"asid_end"`
 }
 
+//nolint:nilnil // An absent URL deliberately disables this optional integration.
 func newMatchlabClient(raw string) (*matchlabClient, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -182,7 +183,6 @@ func (m *matchlabClient) overrideParsed(ctx context.Context, title string, cl *c
 	if parsed.Year != nil && *parsed.Year >= 1800 && *parsed.Year <= 2100 {
 		cl.Date.Year = model.Year(*parsed.Year)
 	}
-
 }
 
 // MatchLab /match is authoritative for season/episode coordinates.
@@ -280,6 +280,7 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext) (a
 		return cl, nil
 	}}, nil
 }
+
 func (attachMatchlabContentBySearchAction) JSONSchema() JSONSchema {
 	return attachMatchlabContentBySearchPayloadSpec.JSONSchema()
 }
