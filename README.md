@@ -27,12 +27,12 @@ containers share a network. No MatchLab API key is needed.
 When `MATCHLAB_URL` is configured, the classifier first tries local content
 search, then sends the **original torrent name** to MatchLab's
 `GET /match?title=...` endpoint. On a successful, unambiguous IMDb match,
-bitmagnet attaches content under the IMDb ID. If MatchLab returns no match, the torrent remains unmatched; there is no TMDB title-search fallback. If the URL is not configured, behavior remains unchanged.
+bitmagnet attaches content under the IMDb ID. When MatchLab is configured, a missing match remains unmatched; TMDB never performs a title-search fallback. When MATCHLAB_URL is absent, Bitmagnet retains its original local search and TMDB matching behavior.
 `apis_enabled: false` disables both MatchLab and TMDB calls.
 
 MatchLab returns `sid_start`, `sid_end`, `asid_start` and `asid_end`.
 This integration uses the IMDb title ID from matching equal SID endpoints;
-the integration also uses MatchLab's `/parse` output to replace Bitmagnet's existing parsed title, year, season and episode values when supplied. It does not introduce new database fields or persist AniDB coordinates.
+the integration uses MatchLab's `/parse` output to replace existing parsed title and year values when supplied. Season and episode values come **only from the `/match` response** (`sid_start` and `sid_end`), not from `/parse`. It does not introduce new database fields or persist AniDB coordinates.
 After MatchLab identifies an IMDb title, bitmagnet can use TMDB's IMDb external-ID lookup and title-details endpoints to enrich the confirmed identity with posters, synopsis and other metadata. TMDB is **never used to identify a torrent by searching its name**. If enrichment is unavailable, a minimal IMDb-linked content record is retained.
 
 
