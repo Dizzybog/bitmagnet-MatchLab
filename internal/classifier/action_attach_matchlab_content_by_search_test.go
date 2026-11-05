@@ -12,12 +12,14 @@ import (
 )
 
 func TestMatchlabClient(t *testing.T) {
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/match" || r.URL.Query().Get("title") != "Example.Show.S01E02" {
 			t.Errorf("unexpected MatchLab request: %s", r.URL.String())
 		}
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567:1:2","asid_start":null,"asid_end":null}`)
+		_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567:1:2","asid_start":null,"asid_end":null}`)
 	}))
 	defer server.Close()
 	client, err := newMatchlabClient(server.URL)
@@ -31,8 +33,10 @@ func TestMatchlabClient(t *testing.T) {
 }
 
 func TestMatchlabUnmatched(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"sid_start":null,"sid_end":null,"asid_start":null,"asid_end":null}`)
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, `{"sid_start":null,"sid_end":null,"asid_start":null,"asid_end":null}`)
 	}))
 	defer server.Close()
 	client, _ := newMatchlabClient(server.URL)
@@ -43,8 +47,10 @@ func TestMatchlabUnmatched(t *testing.T) {
 }
 
 func TestMatchlabRangeAndInvalidConfig(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"sid_start":"tt1234567:1:1","sid_end":"tt1234567:1:5","asid_start":null,"asid_end":null}`)
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:1","sid_end":"tt1234567:1:5","asid_start":null,"asid_end":null}`)
 	}))
 	defer server.Close()
 	client, _ := newMatchlabClient(server.URL)
@@ -61,11 +67,13 @@ func TestMatchlabRangeAndInvalidConfig(t *testing.T) {
 }
 
 func TestMatchlabParserOverridesExistingFields(t *testing.T) {
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/parse" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		fmt.Fprint(w, `{"title":"Example Show","year":2024,"seasons":[2],"episodes":[3,4]}`)
+		_, _ = fmt.Fprint(w, `{"title":"Example Show","year":2024,"seasons":[2],"episodes":[3,4]}`)
 	}))
 	defer server.Close()
 	client, err := newMatchlabClient(server.URL)
@@ -82,6 +90,8 @@ func TestMatchlabParserOverridesExistingFields(t *testing.T) {
 }
 
 func TestMatchlabMatchOverridesEpisodes(t *testing.T) {
+	t.Parallel()
+
 	start, end := "tt1234567:2:3", "tt1234567:2:4"
 	cl := classification.Result{ContentAttributes: classification.ContentAttributes{
 		Episodes: model.Episodes{1: map[int]struct{}{8: {}}},
@@ -93,6 +103,8 @@ func TestMatchlabMatchOverridesEpisodes(t *testing.T) {
 }
 
 func TestMatchlabClassificationFromCoordinates(t *testing.T) {
+	t.Parallel()
+
 	ptr := func(v string) *string { return &v }
 	cases := []struct {
 		name     string
@@ -100,15 +112,46 @@ func TestMatchlabClassificationFromCoordinates(t *testing.T) {
 		want     model.ContentType
 		found    bool
 	}{
-		{"episode", matchlabResponse{SIDStart: ptr("tt1234567:2:3"), SIDEnd: ptr("tt1234567:2:4")}, model.ContentTypeTvShow, true},
-		{"season", matchlabResponse{SIDStart: ptr("tt1234567:2"), SIDEnd: ptr("tt1234567:2")}, model.ContentTypeTvShow, true},
-		{"anime", matchlabResponse{SIDStart: ptr("tt1234567"), SIDEnd: ptr("tt1234567"), ASIDStart: ptr("1234:1")}, model.ContentTypeTvShow, true},
-		{"anime only", matchlabResponse{ASIDStart: ptr("1234:1"), ASIDEnd: ptr("1234:1")}, model.ContentTypeTvShow, true},
-		{"film", matchlabResponse{SIDStart: ptr("tt1234567"), SIDEnd: ptr("tt1234567")}, model.ContentTypeMovie, true},
-		{"empty", matchlabResponse{}, "", false},
+		{
+			name: "episode",
+			response: matchlabResponse{SIDStart: ptr("tt1234567:2:3"), SIDEnd: ptr("tt1234567:2:4")},
+			want: model.ContentTypeTvShow,
+			found: true,
+		},
+		{
+			name: "season",
+			response: matchlabResponse{SIDStart: ptr("tt1234567:2"), SIDEnd: ptr("tt1234567:2")},
+			want: model.ContentTypeTvShow,
+			found: true,
+		},
+		{
+			name: "anime",
+			response: matchlabResponse{SIDStart: ptr("tt1234567"), SIDEnd: ptr("tt1234567"), ASIDStart: ptr("1234:1")},
+			want: model.ContentTypeTvShow,
+			found: true,
+		},
+		{
+			name: "anime only",
+			response: matchlabResponse{ASIDStart: ptr("1234:1"), ASIDEnd: ptr("1234:1")},
+			want: model.ContentTypeTvShow,
+			found: true,
+		},
+		{
+			name: "film",
+			response: matchlabResponse{SIDStart: ptr("tt1234567"), SIDEnd: ptr("tt1234567")},
+			want: model.ContentTypeMovie,
+			found: true,
+		},
+		{
+			name: "empty",
+			response: matchlabResponse{},
+			want: "",
+			found: false,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			got, ok := matchlabContentType(tc.response)
 			if got != tc.want || ok != tc.found {
 				t.Fatalf("got %q %v, want %q %v", got, ok, tc.want, tc.found)
