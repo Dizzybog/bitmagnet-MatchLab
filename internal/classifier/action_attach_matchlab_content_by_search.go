@@ -9,6 +9,7 @@ import (
     "net/http"
     "net/url"
     "os"
+    "strconv"
     "strings"
     "time"
 
@@ -20,6 +21,7 @@ import (
 // An empty MATCHLAB_URL disables this optional integration.
 type matchlabClient struct {
     endpoint string
+    parseEndpoint string
     httpClient *http.Client
 }
 
@@ -38,7 +40,9 @@ func newMatchlabClient(raw string) (*matchlabClient,error) {
         return nil,fmt.Errorf("MATCHLAB_URL must be an HTTP(S) base URL without credentials, query or fragment")
     }
     u.Path=strings.TrimRight(u.Path,"/")+"/match"
-    return &matchlabClient{endpoint:u.String(),httpClient:&http.Client{
+    matchURL:=u.String()
+    u.Path=strings.TrimSuffix(u.Path,"/match")+"/parse"
+    return &matchlabClient{endpoint:matchURL,parseEndpoint:u.String(),httpClient:&http.Client{
         Timeout:5*time.Second,
         CheckRedirect:func(*http.Request,[]*http.Request)error{return http.ErrUseLastResponse},
     }},nil
@@ -70,6 +74,67 @@ func (m *matchlabClient) match(ctx context.Context,title string)(string,bool,err
     return imdb,true,nil
 }
 
+
+type matchlabParsed struct {
+    Title string `json:"title"`
+    Year *int `json:"year"`
+    Seasons []int `json:"seasons"`
+    Episodes []int `json:"episodes"`
+}
+
+// Parsing overrides only existing Bitmagnet fields, never adds a new schema field.
+func (m *matchlabClient) parse(ctx context.Context,title string)(matchlabParsed,error){
+    u,err:=url.Parse(m.parseEndpoint)
+    if err!=nil{return matchlabParsed{},err}
+    q:=u.Query();q.Set("title",title);u.RawQuery=q.Encode()
+    req,err:=http.NewRequestWithContext(ctx,http.MethodGet,u.String(),nil)
+    if err!=nil{return matchlabParsed{},err}
+    res,err:=m.httpClient.Do(req)
+    if err!=nil{return matchlabParsed{},err}
+    defer res.Body.Close()
+    if res.StatusCode!=http.StatusOK{return matchlabParsed{},fmt.Errorf("MatchLab parse HTTP %d",res.StatusCode)}
+    var parsed matchlabParsed
+    err=json.NewDecoder(io.LimitReader(res.Body,16*1024)).Decode(&parsed)
+    return parsed,err
+}
+
+func (m *matchlabClient) overrideParsed(ctx context.Context,title string,cl *classification.Result){
+    parsed,err:=m.parse(ctx,title)
+    if err!=nil{return}
+    if strings.TrimSpace(parsed.Title)!="" {cl.BaseTitle=model.NewNullString(parsed.Title)}
+    if parsed.Year!=nil&&*parsed.Year>=1800&&*parsed.Year<=2100 {
+        cl.Date.Year=model.Year(*parsed.Year)
+    }
+    if len(parsed.Seasons)>0 {
+        episodes:=make(model.Episodes)
+        if len(parsed.Episodes)>0 {
+            for _,season:=range parsed.Seasons {
+                if season<0||season>9999 {continue}
+                for _,episode:=range parsed.Episodes {
+                    if episode>=0&&episode<=99999 {episodes.AddEpisode(season,episode)}
+                }
+            }
+        } else {
+            for _,season:=range parsed.Seasons {
+                if season>=0&&season<=9999 {episodes.AddSeason(season)}
+            }
+        }
+        if len(episodes)>0 {cl.Episodes=episodes}
+    }
+}
+
+func overrideSIDCoordinates(sidStart,sidEnd string,cl *classification.Result){
+    start:=strings.Split(sidStart,":")
+    end:=strings.Split(sidEnd,":")
+    if len(start)!=3||len(end)!=3||start[0]!=end[0]{return}
+    s1,e1:=strconv.Atoi(start[1]);p1,ep1:=strconv.Atoi(start[2])
+    s2,e2:=strconv.Atoi(end[1]);p2,ep2:=strconv.Atoi(end[2])
+    if e1!=nil||ep1!=nil||e2!=nil||ep2!=nil||s1<0||s1>9999||s2!=s1||p1<0||p2<p1||p2>99999||p2-p1>1000{return}
+    episodes:=make(model.Episodes)
+    for ep:=p1;ep<=p2;ep++ {episodes.AddEpisode(s1,ep)}
+    cl.Episodes=episodes
+}
+
 const attachMatchlabContentBySearchName="attach_matchlab_content_by_search"
 
 type attachMatchlabContentBySearchAction struct{}
@@ -86,6 +151,7 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext)(ac
         imdb,found,err:=ctx.matchlabClient.match(ctx.Context,ctx.torrent.Name)
         if err!=nil{return cl,classification.ErrUnmatched}
         if !found{return cl,classification.ErrUnmatched}
+        ctx.matchlabClient.overrideParsed(ctx.Context,ctx.torrent.Name,&cl)
         contentType:=cl.ContentType.ContentType
         if contentType!=model.ContentTypeTvShow&&contentType!=model.ContentTypeMovie {
             return cl,classification.ErrUnmatched
