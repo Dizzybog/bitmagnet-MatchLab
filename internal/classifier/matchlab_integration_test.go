@@ -1,0 +1,135 @@
+package classifier
+
+import (
+    "context"
+    "encoding/json"
+    "errors"
+    "fmt"
+    "net/http"
+    "net/http/httptest"
+    "testing"
+
+    "github.com/bitmagnet-io/bitmagnet/internal/classifier/classification"
+    classifier_mocks "github.com/bitmagnet-io/bitmagnet/internal/classifier/mocks"
+    "github.com/bitmagnet-io/bitmagnet/internal/matchlab"
+    "github.com/bitmagnet-io/bitmagnet/internal/model"
+    "github.com/bitmagnet-io/bitmagnet/internal/tmdb"
+    tmdb_mocks "github.com/bitmagnet-io/bitmagnet/internal/tmdb/mocks"
+    "github.com/stretchr/testify/mock"
+)
+
+func runWithMatchLab(t *testing.T, api matchlab.Client, enabledTMDB bool, client tmdb.Client) (Runner, model.Torrent) {
+    t.Helper()
+    source, err := (yamlSourceProvider{rawSourceProvider: coreSourceProvider{}}).source()
+    if err != nil { t.Fatal(err) }
+    search := classifier_mocks.NewLocalSearch(t)
+    compiler := compiler{
+        options: []compilerOption{compilerFeatures(defaultFeatures), celEnvOption},
+        dependencies: dependencies{
+            search: search,
+            tmdbClient: client,
+            matchlabClient: api,
+            tmdbEnabled: enabledTMDB,
+        },
+    }
+    workflow, err := compiler.Compile(source)
+    if err != nil { t.Fatal(err) }
+    return workflow, model.Torrent{
+        Name: "Example.Movie.2024.1080p.WEB-DL.mkv",
+        FilesStatus: model.FilesStatusSingle,
+        Extension: model.NewNullString("mkv"),
+        Size: 1_000_000_000,
+    }
+}
+
+func testMatchLab(t *testing.T, handler http.HandlerFunc) matchlab.Client {
+    t.Helper()
+    server := httptest.NewServer(handler)
+    t.Cleanup(server.Close)
+    api, err := matchlab.NewClient(matchlab.Config{URL: server.URL, TimeoutSeconds: 4, MaxConcurrent: 2})
+    if err != nil { t.Fatal(err) }
+    return api
+}
+
+func TestConfiguredMatchLabDisablesAllLocalAndTMDBTitleSearch(t *testing.T) {
+    t.Parallel()
+    api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
+        switch r.URL.Path {
+        case "/match":
+            _, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567"}`)
+        case "/parse":
+            _, _ = fmt.Fprint(w, `{"title":"Example Movie","year":"2024"}`)
+        default:
+            t.Errorf("unexpected MatchLab path %q", r.URL.Path)
+        }
+    })
+    tmdbClient := tmdb_mocks.NewClient(t)
+    workflow, torrent := runWithMatchLab(t, api, false, tmdbClient)
+    // Even an old reprocessing job explicitly requesting local matching must
+    // not bypass a configured MatchLab provider.
+    result, err := workflow.Run(context.Background(), "default", Flags{
+        "matchlab_enabled": false, "local_search_enabled": true,
+    }, torrent)
+    if err != nil { t.Fatal(err) }
+    if result.Content == nil || result.Content.Source != model.SourceImdb ||
+        result.Content.ID != "tt1234567" || result.Content.Title != "Example Movie" {
+        t.Fatalf("unexpected verified IMDb content: %+v", result.Content)
+    }
+}
+
+func TestMatchLabNoMatchAndOutageNeverFallback(t *testing.T) {
+    t.Parallel()
+    for _, tc := range []struct{ name string; code int; payload string; wantError bool }{
+        {"unmatched", 200, `{"sid_start":null,"sid_end":null}`, false},
+        {"unavailable", 503, `{"error":"initializing"}`, true},
+        {"malformed", 200, `{"sid_start":"tt1234567","sid_end":"tt2345678"}`, true},
+    } {
+        t.Run(tc.name, func(t *testing.T) {
+            t.Parallel()
+            api := testMatchLab(t,func(w http.ResponseWriter,r *http.Request){
+                if r.URL.Path!="/match"{t.Errorf("unexpected request %s",r.URL.Path)}
+                w.WriteHeader(tc.code)
+                _,_=fmt.Fprint(w,tc.payload)
+            })
+            workflow, torrent := runWithMatchLab(t,api,false,tmdb_mocks.NewClient(t))
+            result, err := workflow.Run(context.Background(),"default",nil,torrent)
+            if (err!=nil)!=tc.wantError { t.Fatalf("error=%v, content=%+v",err,result.Content) }
+            if errors.Is(err,classification.ErrUnmatched) {t.Fatalf("outage should not be a legitimate no-match: %v",err)}
+            if result.Content!=nil {t.Fatalf("unexpected fallback content: %+v",result.Content)}
+        })
+    }
+}
+
+func TestMatchLabIMDbIdentitySurvivesTMDBEnrichment(t *testing.T) {
+    t.Parallel()
+    api := testMatchLab(t,func(w http.ResponseWriter,r *http.Request){
+        if r.URL.Path=="/match"{
+            _,_=fmt.Fprint(w,`{"sid_start":"tt1234567","sid_end":"tt1234567"}`)
+        }else if r.URL.Path=="/parse"{
+            _,_=fmt.Fprint(w,`{"title":"Example Movie","year":2024}`)
+        }else{
+            t.Errorf("unexpected API path %s",r.URL.Path)
+        }
+    })
+    client:=tmdb_mocks.NewClient(t)
+    var lookup tmdb.FindByIDResponse
+    if err:=json.Unmarshal([]byte(`{"movie_results":[{"id":42}]}`),&lookup);err!=nil{t.Fatal(err)}
+    matchContext:=mock.MatchedBy(func(ctx any)bool{_,ok:=ctx.(context.Context);return ok})
+    client.On("FindByID",matchContext,tmdb.FindByIDRequest{
+        ExternalSource:"imdb_id",ExternalID:"tt1234567",
+    }).Return(lookup,nil).Once()
+    client.On("MovieDetails",matchContext,tmdb.MovieDetailsRequest{ID:42}).
+        Return(tmdb.MovieDetailsResponse{ID:42,Title:"TMDB Movie",IMDbID:"tt1234567",Overview:"Enriched metadata"},nil).Once()
+    workflow,torrent:=runWithMatchLab(t,api,true,client)
+    result,err:=workflow.Run(context.Background(),"default",nil,torrent)
+    if err!=nil{t.Fatal(err)}
+    if result.Content==nil||result.Content.ID!="tt1234567"||
+        result.Content.Source!=model.SourceImdb||result.Content.Title!="TMDB Movie" {
+        t.Fatalf("TMDB changed canonical MatchLab identity: %+v",result.Content)
+    }
+    hasTMDBLink:=false
+    for _,attr:=range result.Content.Attributes{
+        if attr.Source==model.SourceTmdb&&attr.Key=="id"&&attr.Value=="42"{hasTMDBLink=true}
+    }
+    if !hasTMDBLink{t.Fatalf("TMDB external link missing: %+v",result.Content.Attributes)}
+}
