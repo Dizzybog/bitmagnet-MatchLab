@@ -22,11 +22,11 @@ jobs:
       - name: Run linters
         run: |
           nix develop --ignore-environment --keep HOME . --command task lint
-      # Adding golang-ci lint as a separate step as the Nix package is currently broken
+      # Use a current linter built with a Go version compatible with dependencies.
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1.6
+          version: latest
           args: --timeout=10m
 
   test:
