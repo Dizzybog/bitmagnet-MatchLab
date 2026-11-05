@@ -23,7 +23,7 @@ func TestMatchlabClient(t *testing.T){
     client,err:=newMatchlabClient(server.URL)
     if err!=nil{t.Fatal(err)}
     matched,found,err:=client.match(context.Background(),"Example.Show.S01E02")
-    if err!=nil||!found||matched.SIDStart==nil||*matched.SIDStart!="tt1234567:1:2"{t.Fatalf("got %q, %v, %v",matched,found,err)}
+    if err!=nil||!found||matched.SIDStart==nil||*matched.SIDStart!="tt1234567:1:2"{t.Fatalf("got %+v, %v, %v",matched,found,err)}
 }
 
 func TestMatchlabUnmatched(t *testing.T){
