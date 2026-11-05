@@ -97,6 +97,10 @@ workflows:
                 if_action: attach_local_content_by_search
                 else_action: unmatched
             - if_else:
+                condition: "flags.apis_enabled"
+                if_action: attach_matchlab_content_by_search
+                else_action: unmatched
+            - if_else:
                 condition: "flags.apis_enabled && flags.tmdb_enabled"
                 if_action: attach_tmdb_content_by_search
                 else_action: unmatched
