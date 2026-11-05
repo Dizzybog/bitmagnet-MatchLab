@@ -1,11 +1,12 @@
 package classifier
 
 import (
+	"os"
+
 	"github.com/adrg/xdg"
 	"github.com/bitmagnet-io/bitmagnet/internal/matchlab"
 	"github.com/bitmagnet-io/bitmagnet/internal/tmdb"
 	"gopkg.in/yaml.v3"
-	"os"
 )
 
 func newSourceProvider(config Config, tmdbConfig tmdb.Config, matchlabConfig matchlab.Config) sourceProvider {

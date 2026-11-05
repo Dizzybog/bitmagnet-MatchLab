@@ -67,7 +67,9 @@ func TestMatchNoFallbackOnEmptyAndInvalidIdentities(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = fmt.Fprint(w, tc.body) }))
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = fmt.Fprint(w, tc.body)
+			}))
 			defer srv.Close()
 			foundResponse, found, err := testingClient(t, srv.URL).Match(context.Background(), "Example")
 			if found != tc.wantFound || (err != nil) != tc.wantError {

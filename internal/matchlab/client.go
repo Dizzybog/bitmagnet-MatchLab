@@ -73,6 +73,7 @@ type httpClient struct {
 
 func NewClient(cfg Config) (Client, error) {
 	if !cfg.Enabled() {
+		//nolint:nilnil // An absent URL intentionally disables the optional client.
 		return nil, nil
 	}
 	raw := strings.TrimSpace(cfg.URL)
@@ -82,7 +83,9 @@ func NewClient(cfg Config) (Client, error) {
 	}
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
 		u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
-		return nil, errors.New("MATCHLAB_URL must be an HTTP(S) base URL without credentials, query or fragment")
+		return nil, errors.New(
+			"MATCHLAB_URL must be an HTTP(S) base URL without credentials, query or fragment",
+		)
 	}
 	if cfg.TimeoutSeconds <= 0 || cfg.MaxConcurrent <= 0 {
 		return nil, errors.New("MatchLab timeout and concurrency must be positive")

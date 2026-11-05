@@ -57,13 +57,19 @@ func testMatchLab(t *testing.T, handler http.HandlerFunc) matchlab.Client {
 	return api
 }
 
+const (
+	matchlabTestMatchPath = "/match"
+	matchlabTestParsePath = "/parse"
+	matchlabTestIMDbID = "tt1234567"
+)
+
 func TestConfiguredMatchLabDisablesAllLocalAndTMDBTitleSearch(t *testing.T) {
 	t.Parallel()
 	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/match":
+		case matchlabTestMatchPath:
 			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567"}`)
-		case "/parse":
+		case matchlabTestParsePath:
 			_, _ = fmt.Fprint(w, `{"title":"Example Movie","year":"2024"}`)
 		default:
 			t.Errorf("unexpected MatchLab path %q", r.URL.Path)
@@ -80,7 +86,7 @@ func TestConfiguredMatchLabDisablesAllLocalAndTMDBTitleSearch(t *testing.T) {
 		t.Fatal(err)
 	}
 	if result.Content == nil || result.Content.Source != model.SourceImdb ||
-		result.Content.ID != "tt1234567" || result.Content.Title != "Example Movie" {
+		result.Content.ID != matchlabTestIMDbID || result.Content.Title != "Example Movie" {
 		t.Fatalf("unexpected verified IMDb content: %+v", result.Content)
 	}
 }
@@ -100,7 +106,7 @@ func TestMatchLabNoMatchAndOutageNeverFallback(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != "/match" {
+				if r.URL.Path != matchlabTestMatchPath {
 					t.Errorf("unexpected request %s", r.URL.Path)
 				}
 				w.WriteHeader(tc.code)
@@ -124,11 +130,12 @@ func TestMatchLabNoMatchAndOutageNeverFallback(t *testing.T) {
 func TestMatchLabIMDbIdentitySurvivesTMDBEnrichment(t *testing.T) {
 	t.Parallel()
 	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/match" {
+		switch r.URL.Path {
+		case matchlabTestMatchPath:
 			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567"}`)
-		} else if r.URL.Path == "/parse" {
+		case matchlabTestParsePath:
 			_, _ = fmt.Fprint(w, `{"title":"Example Movie","year":2024}`)
-		} else {
+		default:
 			t.Errorf("unexpected API path %s", r.URL.Path)
 		}
 	})
@@ -139,16 +146,19 @@ func TestMatchLabIMDbIdentitySurvivesTMDBEnrichment(t *testing.T) {
 	}
 	matchContext := mock.MatchedBy(func(ctx any) bool { _, ok := ctx.(context.Context); return ok })
 	client.On("FindByID", matchContext, tmdb.FindByIDRequest{
-		ExternalSource: "imdb_id", ExternalID: "tt1234567",
+		ExternalSource: "imdb_id", ExternalID: matchlabTestIMDbID,
 	}).Return(lookup, nil).Once()
 	client.On("MovieDetails", matchContext, tmdb.MovieDetailsRequest{ID: 42}).
-		Return(tmdb.MovieDetailsResponse{ID: 42, Title: "TMDB Movie", IMDbID: "tt1234567", Overview: "Enriched metadata"}, nil).Once()
+		Return(tmdb.MovieDetailsResponse{
+			ID: 42, Title: "TMDB Movie",
+			IMDbID: matchlabTestIMDbID, Overview: "Enriched metadata",
+		}, nil).Once()
 	workflow, torrent := runWithMatchLab(t, api, true, client)
 	result, err := workflow.Run(context.Background(), "default", nil, torrent)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Content == nil || result.Content.ID != "tt1234567" ||
+	if result.Content == nil || result.Content.ID != matchlabTestIMDbID ||
 		result.Content.Source != model.SourceImdb || result.Content.Title != "TMDB Movie" {
 		t.Fatalf("TMDB changed canonical MatchLab identity: %+v", result.Content)
 	}
