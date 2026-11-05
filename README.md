@@ -31,7 +31,7 @@ bitmagnet attaches content under the IMDb ID. When MatchLab is configured, a mis
 `apis_enabled: false` disables both MatchLab and TMDB calls.
 
 MatchLab returns `sid_start`, `sid_end`, `asid_start` and `asid_end`.
-This integration uses the IMDb title ID from matching equal SID endpoints;
+Classification is derived from MatchLab coordinates: SID with season or episode is a TV series; any non-empty ASID is a TV series; a bare IMDb SID without season or episode is a movie. Series rules take precedence. This integration uses the IMDb title ID from matching SID endpoints when available;
 the integration uses MatchLab's `/parse` output to replace existing parsed title and year values when supplied. Season and episode values come **only from the `/match` response** (`sid_start` and `sid_end`), not from `/parse`. It does not introduce new database fields or persist AniDB coordinates.
 After MatchLab identifies an IMDb title, bitmagnet can use TMDB's IMDb external-ID lookup and title-details endpoints to enrich the confirmed identity with posters, synopsis and other metadata. TMDB is **never used to identify a torrent by searching its name**. If enrichment is unavailable, a minimal IMDb-linked content record is retained.
 
