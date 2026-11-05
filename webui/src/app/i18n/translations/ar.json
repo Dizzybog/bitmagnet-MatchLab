@@ -122,8 +122,8 @@
     "component": "مكون",
     "components": {
       "dht": "DHT",
-      "postgres": "Postgres",
       "matchlab": "MatchLab",
+      "postgres": "Postgres",
       "tmdb": "TMDB"
     },
     "dismiss": "رفض",
