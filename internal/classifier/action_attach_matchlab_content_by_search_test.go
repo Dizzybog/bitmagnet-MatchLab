@@ -84,7 +84,9 @@ func TestMatchlabParserOverridesExistingFields(t *testing.T) {
 	cl := classification.Result{}
 	cl.BaseTitle = model.NewNullString("Incorrect Title")
 	cl.Episodes = model.Episodes{1: map[int]struct{}{8: {}}}
-	if err := overrideMatchlabParsed(context.Background(), client, "Example.Show.S02E03-E04", &cl); err != nil { t.Fatal(err) }
+	if err := overrideMatchlabParsed(context.Background(), client, "Example.Show.S02E03-E04", &cl); err != nil {
+		t.Fatal(err)
+	}
 	if cl.BaseTitle.String != "Example Show" || cl.Date.Year != 2024 || !cl.Episodes.HasEpisode(1, 8) {
 		t.Fatalf("parser overrides not applied: %+v", cl)
 	}
