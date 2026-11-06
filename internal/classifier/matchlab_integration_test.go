@@ -61,6 +61,7 @@ const (
 	matchlabTestMatchPath = "/match"
 	matchlabTestParsePath = "/parse"
 	matchlabTestIMDbID    = "tt1234567"
+	matchlabTestExternalSource = "imdb_id"
 )
 
 func TestConfiguredMatchLabDisablesAllLocalAndTMDBTitleSearch(t *testing.T) {
@@ -146,7 +147,7 @@ func TestMatchLabIMDbIdentitySurvivesTMDBEnrichment(t *testing.T) {
 	}
 	matchContext := mock.MatchedBy(func(ctx any) bool { _, ok := ctx.(context.Context); return ok })
 	client.On("FindByID", matchContext, tmdb.FindByIDRequest{
-		ExternalSource: "imdb_id", ExternalID: matchlabTestIMDbID,
+		ExternalSource: matchlabTestExternalSource, ExternalID: matchlabTestIMDbID,
 	}).Return(lookup, nil).Once()
 	client.On("MovieDetails", matchContext, tmdb.MovieDetailsRequest{ID: 42}).
 		Return(tmdb.MovieDetailsResponse{
@@ -191,7 +192,7 @@ func TestMatchLabBareIMDbIDUsesTMDBMediaTypeWithoutTitleSearch(t *testing.T) {
 		t.Fatal(err)
 	}
 	client.On("FindByID", mock.Anything, tmdb.FindByIDRequest{
-		ExternalSource: "imdb_id", ExternalID: matchlabTestIMDbID,
+		ExternalSource: matchlabTestExternalSource, ExternalID: matchlabTestIMDbID,
 	}).Return(lookup, nil).Once()
 	client.On("TvDetails", mock.Anything, tmdb.TvDetailsRequest{
 		SeriesID: 42, AppendToResponse: []string{"external_ids"},
@@ -221,7 +222,7 @@ func TestMatchLabKeepsIMDbIdentityWhenTMDBReturnsNotFound(t *testing.T) {
 	})
 	client := tmdb_mocks.NewClient(t)
 	client.On("FindByID", mock.Anything, tmdb.FindByIDRequest{
-		ExternalSource: "imdb_id", ExternalID: matchlabTestIMDbID,
+		ExternalSource: matchlabTestExternalSource, ExternalID: matchlabTestIMDbID,
 	}).Return(tmdb.FindByIDResponse{}, tmdb.ErrNotFound).Once()
 	workflow, torrent := runWithMatchLab(t, api, true, client)
 	result, err := workflow.Run(context.Background(), "default", nil, torrent)
