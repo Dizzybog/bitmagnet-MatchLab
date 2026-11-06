@@ -120,10 +120,11 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext) (a
 		// MatchLab owns identity/episodes. Only request /parse if TMDB
 		// cannot supply title metadata, avoiding an extra HTTP call per match.
 		enrichFromParse := func() {
-			if err := overrideMatchlabParsed(ctx.Context, ctx.matchlabClient, ctx.torrent.Name, &cl); err != nil {
-				if ctx.logger != nil {
-					ctx.logger.Warnw("MatchLab parse enrichment unavailable", "error", err)
-				}
+			parseErr := overrideMatchlabParsed(
+				ctx.Context, ctx.matchlabClient, ctx.torrent.Name, &cl,
+			)
+			if parseErr != nil && ctx.logger != nil {
+				ctx.logger.Warnw("MatchLab parse enrichment unavailable", "error", parseErr)
 			}
 		}
 		cl.ContentType = model.NewNullContentType(contentType)
