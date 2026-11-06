@@ -70,7 +70,8 @@ func TestConfiguredMatchLabDisablesAllLocalAndTMDBTitleSearch(t *testing.T) {
 	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case matchlabTestMatchPath:
-			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567","asid_start":null,"asid_end":null}`)
+			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567",` +
+				`"asid_start":null,"asid_end":null}`)
 		case matchlabTestParsePath:
 			_, _ = fmt.Fprint(w, `{"title":"Example Movie","year":"2024"}`)
 		default:
@@ -103,7 +104,8 @@ func TestMatchLabNoMatchAndOutageNeverFallback(t *testing.T) {
 	}{
 		{"unmatched", 200, `{"sid_start":null,"sid_end":null,"asid_start":null,"asid_end":null}`, false},
 		{"unavailable", 503, `{"error":"initializing"}`, true},
-		{"malformed", 200, `{"sid_start":"tt1234567","sid_end":"tt2345678","asid_start":null,"asid_end":null}`, true},
+		{"malformed", 200, `{"sid_start":"tt1234567","sid_end":"tt2345678",` +
+			`"asid_start":null,"asid_end":null}`, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -134,7 +136,8 @@ func TestMatchLabIMDbIdentitySurvivesTMDBEnrichment(t *testing.T) {
 	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case matchlabTestMatchPath:
-			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567","asid_start":null,"asid_end":null}`)
+			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567",` +
+				`"asid_start":null,"asid_end":null}`)
 		case matchlabTestParsePath:
 			_, _ = fmt.Fprint(w, `{"title":"Example Movie","year":2024}`)
 		default:
@@ -180,7 +183,8 @@ func TestMatchLabBareIMDbIDUsesTMDBMediaTypeWithoutTitleSearch(t *testing.T) {
 	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case matchlabTestMatchPath:
-			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567","asid_start":null,"asid_end":null}`)
+			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567",` +
+				`"asid_start":null,"asid_end":null}`)
 		case matchlabTestParsePath:
 			_, _ = fmt.Fprint(w, `{"title":"Example Show","year":2024}`)
 		default:
@@ -214,7 +218,8 @@ func TestMatchLabKeepsIMDbIdentityWhenTMDBReturnsNotFound(t *testing.T) {
 	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case matchlabTestMatchPath:
-			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567","asid_start":null,"asid_end":null}`)
+			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567",` +
+				`"asid_start":null,"asid_end":null}`)
 		case matchlabTestParsePath:
 			_, _ = fmt.Fprint(w, `{"title":"Example Movie","year":2024}`)
 		default:
@@ -241,7 +246,8 @@ func TestMatchLabOverridesStaleMovieHintAndPreviouslyAttachedContent(t *testing.
 	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case matchlabTestMatchPath:
-			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567","asid_start":null,"asid_end":null}`)
+			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567",` +
+				`"asid_start":null,"asid_end":null}`)
 		case matchlabTestParsePath:
 			_, _ = fmt.Fprint(w, `{"title":"Example Movie","year":2024}`)
 		default:
