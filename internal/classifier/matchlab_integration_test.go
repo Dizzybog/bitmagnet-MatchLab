@@ -139,7 +139,7 @@ func TestMatchLabIMDbIdentitySurvivesTMDBEnrichment(t *testing.T) {
 			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567",` +
 				`"asid_start":null,"asid_end":null}`)
 		case matchlabTestParsePath:
-			_, _ = fmt.Fprint(w, `{"title":"Example Movie","year":2024}`)
+			t.Errorf("redundant /parse request after successful TMDB metadata lookup")
 		default:
 			t.Errorf("unexpected API path %s", r.URL.Path)
 		}

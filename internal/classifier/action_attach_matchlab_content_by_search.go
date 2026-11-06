@@ -117,11 +117,13 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext) (a
 			return cl, classification.ErrUnmatched
 		}
 
-		// Keep local video-quality fields, but make MatchLab authoritative for
-		// season/episode coordinates and canonical title/year, when available.
-		if err := overrideMatchlabParsed(ctx.Context, ctx.matchlabClient, ctx.torrent.Name, &cl); err != nil {
-			if ctx.logger != nil {
-				ctx.logger.Warnw("MatchLab parse enrichment unavailable", "error", err)
+		// MatchLab owns identity/episodes. Only request /parse if TMDB
+		// cannot supply title metadata, avoiding an extra HTTP call per match.
+		enrichFromParse := func() {
+			if err := overrideMatchlabParsed(ctx.Context, ctx.matchlabClient, ctx.torrent.Name, &cl); err != nil {
+				if ctx.logger != nil {
+					ctx.logger.Warnw("MatchLab parse enrichment unavailable", "error", err)
+				}
 			}
 		}
 		cl.ContentType = model.NewNullContentType(contentType)
@@ -135,15 +137,14 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext) (a
 		if !hasIMDb {
 			// AniDB coordinates alone can identify the media type, but must
 			// not be turned into an invented IMDb or TMDB ID.
+			enrichFromParse()
 			return cl, nil
 		}
 		content := model.Content{
 			Type: contentType, Source: model.SourceImdb, ID: imdb,
 			Title: ctx.torrent.Name,
 		}
-		if cl.BaseTitle.Valid {
-			content.Title = cl.BaseTitle.String
-		}
+		metadataEnriched := false
 
 		if ctx.tmdbEnabled && ctx.tmdbClient != nil {
 			// Lookup by MatchLab's verified IMDb ID only. The same response
@@ -193,9 +194,16 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext) (a
 						Value: strconv.FormatInt(tmdbID, 10),
 					})
 					content = details
+					metadataEnriched = true
 				} else if !errors.Is(detailsErr, classification.ErrUnmatched) {
 					return cl, fmt.Errorf("TMDB metadata lookup for %s: %w", imdb, detailsErr)
 				}
+			}
+		}
+		if !metadataEnriched {
+			enrichFromParse()
+			if cl.BaseTitle.Valid {
+				content.Title = cl.BaseTitle.String
 			}
 		}
 		cl.AttachContent(&content)
