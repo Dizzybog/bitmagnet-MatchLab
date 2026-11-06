@@ -173,8 +173,6 @@ func TestMatchLabIMDbIdentitySurvivesTMDBEnrichment(t *testing.T) {
 	}
 }
 
-
-
 func TestMatchLabBareIMDbIDUsesTMDBMediaTypeWithoutTitleSearch(t *testing.T) {
 	t.Parallel()
 	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
