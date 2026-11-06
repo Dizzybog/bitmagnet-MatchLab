@@ -32,7 +32,7 @@ With `MATCHLAB_URL` set:
 5. TMDB details enrich the record (poster, synopsis, genres, release date, etc.). The canonical content identity remains the **MatchLab-confirmed IMDb ID**, with the TMDB ID recorded as an external attribute.
 6. When MatchLab returns no IMDb match, Bitmagnet does **not** fall back to local title search or TMDB title matching. AniDB-only coordinates can still classify a release as a TV series, but never produce a fabricated IMDb ID.
 
-Existing ID hints and already attached content can still be reused; these are **ID lookups**, not title matching. For a full re-evaluation of existing records, enqueue a **rematch/reprocess** job in the normal Bitmagnet queue dashboard.
+When MatchLab is configured, existing **movie/TV ID hints and previously attached content do not bypass MatchLab**: their identities are reverified against the original torrent name. Hints for other content types keep their existing behavior. To re-evaluate previously indexed torrents, enqueue a **rematch/reprocess** job from the normal Bitmagnet queue dashboard.
 
 When `MATCHLAB_URL` is **unset**, the original Bitmagnet workflow is retained: local content lookup and TMDB title matching operate as before. Global `classifier.flags.apis_enabled: false` still disables external matching calls. Runtime queue flags cannot silently re-enable local title matching when the MatchLab provider is configured.
 
