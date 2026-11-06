@@ -20,7 +20,8 @@ func TestMatchlabClient(t *testing.T) {
 			t.Errorf("unexpected MatchLab request: %s", r.URL.String())
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567:1:2","asid_start":null,"asid_end":null}`)
+		_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567:1:2",` +
+			`"asid_start":null,"asid_end":null}`)
 	}))
 	defer server.Close()
 	client, err := newTestMatchlabClient(server.URL)
@@ -51,7 +52,8 @@ func TestMatchlabRangeAndInvalidConfig(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:1","sid_end":"tt1234567:1:5","asid_start":null,"asid_end":null}`)
+		_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:1","sid_end":"tt1234567:1:5",` +
+			`"asid_start":null,"asid_end":null}`)
 	}))
 	defer server.Close()
 	client, _ := newTestMatchlabClient(server.URL)

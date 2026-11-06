@@ -28,7 +28,8 @@ func TestClientMatchAndParse(t *testing.T) {
 		}
 		switch r.URL.Path {
 		case "/match":
-			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567:1:3","asid_start":null,"asid_end":null}`)
+			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567:1:3",` +
+				`"asid_start":null,"asid_end":null}`)
 		case "/parse":
 			_, _ = fmt.Fprint(w, `{"title":"Some Show","year":"2020"}`)
 		default:
@@ -60,9 +61,11 @@ func TestMatchNoFallbackOnEmptyAndInvalidIdentities(t *testing.T) {
 		{"truncated no-match", `{"sid_start":null,"sid_end":null}`, false, true},
 		{"movie", `{"sid_start":"tt1234567","sid_end":"tt1234567","asid_start":null,"asid_end":null}`, true, false},
 		{"anidb only", `{"sid_start":null,"sid_end":null,"asid_start":"14951:1","asid_end":"14951:1"}`, true, false},
-		{"different IDs", `{"sid_start":"tt1234567","sid_end":"tt2222222","asid_start":null,"asid_end":null}`, false, true},
+		{"different IDs", `{"sid_start":"tt1234567","sid_end":"tt2222222",` +
+			`"asid_start":null,"asid_end":null}`, false, true},
 		{"malformed ID", `{"sid_start":"garbage","sid_end":"garbage","asid_start":null,"asid_end":null}`, false, true},
-		{"inconsistent parts", `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567","asid_start":null,"asid_end":null}`, false, true},
+		{"inconsistent parts", `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567",` +
+			`"asid_start":null,"asid_end":null}`, false, true},
 		{"missing end", `{"sid_start":"tt1234567"}`, false, true},
 	}
 	for _, tc := range cases {
