@@ -93,6 +93,27 @@ func TestConfiguredMatchLabDisablesAllLocalAndTMDBTitleSearch(t *testing.T) {
 	}
 }
 
+func TestMatchLabSkipsKnownNonVideoTorrentCategories(t *testing.T) {
+	t.Parallel()
+	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("non-video torrent must not trigger MatchLab %s", r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	workflow, torrent := runWithMatchLab(t, api, false, tmdb_mocks.NewClient(t))
+	torrent.Name = "Accounting.Application.v2.1.zip"
+	torrent.Extension = model.NewNullString("zip")
+	torrent.Size = 5_000_000
+	torrent.Hint = model.TorrentHint{ContentType: model.ContentTypeSoftware}
+
+	result, err := workflow.Run(context.Background(), "default", nil, torrent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ContentType.ContentType != model.ContentTypeSoftware || result.Content != nil {
+		t.Fatalf("MatchLab reclassified software torrent: %+v", result)
+	}
+}
+
 func TestMatchLabNoMatchAndOutageNeverFallback(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
