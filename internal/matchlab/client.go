@@ -22,6 +22,30 @@ type Response struct {
 	ASIDEnd   *string `json:"asid_end"`
 }
 
+// UnmarshalJSON enforces the public /match contract. A partial or empty
+// response must never become a legitimate no-match and clear prior matches.
+func (r *Response) UnmarshalJSON(data []byte) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	if len(fields) != 4 {
+		return fmt.Errorf("MatchLab /match requires exactly four identity fields, got %d", len(fields))
+	}
+	for _, name := range []string{"sid_start", "sid_end", "asid_start", "asid_end"} {
+		if _, ok := fields[name]; !ok {
+			return fmt.Errorf("MatchLab /match missing identity field %q", name)
+		}
+	}
+	type plain Response
+	var parsed plain
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return err
+	}
+	*r = Response(parsed)
+	return nil
+}
+
 type Parsed struct {
 	Title string `json:"title"`
 	Year  *int   `json:"year"`
