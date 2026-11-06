@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+const (
+	testUnmatchedResponse = `{"sid_start":null,"sid_end":null,"asid_start":null,"asid_end":null}`
+	testAniDBOnlyResponse = `{"sid_start":null,"sid_end":null,"asid_start":"14951:1","asid_end":"14951:1"}`
+)
+
 // testCompleteMatchResponse constructs the full /match schema without
 // fragile, oversized JSON literals in individual test cases.
 func testCompleteMatchResponse(start, end string) string {
@@ -65,8 +70,7 @@ func TestMatchNoFallbackOnEmptyAndInvalidIdentities(t *testing.T) {
 		name, body           string
 		wantFound, wantError bool
 	}{
-		{"unmatched", `{"sid_start":null,"sid_end":null,` +
-			`"asid_start":null,"asid_end":null}`, false, false},
+		{"unmatched", testUnmatchedResponse, false, false},
 		{"truncated no-match", `{"sid_start":null,"sid_end":null}`, false, true},
 		{
 			name:      "trailing JSON",
@@ -79,8 +83,7 @@ func TestMatchNoFallbackOnEmptyAndInvalidIdentities(t *testing.T) {
 			wantError: true,
 		},
 		{"movie", testCompleteMatchResponse("tt1234567", "tt1234567"), true, false},
-		{"anidb only", `{"sid_start":null,"sid_end":null,` +
-			`"asid_start":"14951:1","asid_end":"14951:1"}`, true, false},
+		{"anidb only", testAniDBOnlyResponse, true, false},
 		{"different IDs", testCompleteMatchResponse("tt1234567", "tt2222222"), false, true},
 		{"malformed ID", testCompleteMatchResponse("garbage", "garbage"), false, true},
 		{"inconsistent parts", testCompleteMatchResponse("tt1234567:1:2", "tt1234567"), false, true},
