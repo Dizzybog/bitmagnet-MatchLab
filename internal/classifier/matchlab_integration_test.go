@@ -61,8 +61,9 @@ const (
 	matchlabTestMatchPath = "/match"
 	matchlabTestParsePath = "/parse"
 	matchlabTestIMDbID    = "tt1234567"
-	matchlabTestExternalSource = "imdb_id"
 )
+
+const matchlabTestExternalSource = "imdb_id"
 
 func TestConfiguredMatchLabDisablesAllLocalAndTMDBTitleSearch(t *testing.T) {
 	t.Parallel()
