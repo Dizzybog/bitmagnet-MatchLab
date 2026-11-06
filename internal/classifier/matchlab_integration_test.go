@@ -236,12 +236,12 @@ func TestMatchLabBlocksDirectIdentitySearchActionsInCustomWorkflows(t *testing.T
 				t.Fatal(compileErr)
 			}
 			_, runErr := compiled.run(executionContext{
-				Context: context.Background(),
+				Context:      context.Background(),
 				dependencies: dependencies{matchlabClient: api},
 				torrent: model.Torrent{Hint: model.TorrentHint{
-					ContentType: model.ContentTypeMovie,
+					ContentType:   model.ContentTypeMovie,
 					ContentSource: model.NewNullString(model.SourceImdb),
-					ContentID: model.NewNullString("tt7654321"),
+					ContentID:     model.NewNullString("tt7654321"),
 				}},
 				result: classification.Result{
 					ContentAttributes: classification.ContentAttributes{
