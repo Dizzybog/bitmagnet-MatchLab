@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+// testCompleteMatchResponse constructs the full /match schema without
+// fragile, oversized JSON literals in individual test cases.
+func testCompleteMatchResponse(start, end string) string {
+	return fmt.Sprintf(
+		`{"sid_start":%q,"sid_end":%q,"asid_start":null,"asid_end":null}`,
+		start, end,
+	)
+}
+
 func testingClient(t *testing.T, url string) Client {
 	t.Helper()
 	c, err := NewClient(Config{URL: url, TimeoutSeconds: 2, MaxConcurrent: 1})
@@ -28,8 +37,7 @@ func TestClientMatchAndParse(t *testing.T) {
 		}
 		switch r.URL.Path {
 		case "/match":
-			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567:1:3",` +
-				`"asid_start":null,"asid_end":null}`)
+			_, _ = fmt.Fprint(w, testCompleteMatchResponse("tt1234567:1:2", "tt1234567:1:3"))
 		case "/parse":
 			_, _ = fmt.Fprint(w, `{"title":"Some Show","year":"2020"}`)
 		default:
@@ -60,20 +68,22 @@ func TestMatchNoFallbackOnEmptyAndInvalidIdentities(t *testing.T) {
 		{"unmatched", `{"sid_start":null,"sid_end":null,` +
 			`"asid_start":null,"asid_end":null}`, false, false},
 		{"truncated no-match", `{"sid_start":null,"sid_end":null}`, false, true},
-		{"trailing JSON", `{"sid_start":null,"sid_end":null,` +
-			`"asid_start":null,"asid_end":null}{}`, false, true},
-		{"unknown field", `{"sid_start":null,"sid_end":null,` +
-			`"asid_start":null,"asid_end":null,"unexpected":1}`, false, true},
-		{"movie", `{"sid_start":"tt1234567","sid_end":"tt1234567",` +
-			`"asid_start":null,"asid_end":null}`, true, false},
+		{
+			name:      "trailing JSON",
+			body:      `{"sid_start":null,"sid_end":null,"asid_start":null,"asid_end":null}{}`,
+			wantError: true,
+		},
+		{
+			name:      "unknown field",
+			body:      `{"sid_start":null,"sid_end":null,"asid_start":null,"asid_end":null,"unexpected":1}`,
+			wantError: true,
+		},
+		{"movie", testCompleteMatchResponse("tt1234567", "tt1234567"), true, false},
 		{"anidb only", `{"sid_start":null,"sid_end":null,` +
 			`"asid_start":"14951:1","asid_end":"14951:1"}`, true, false},
-		{"different IDs", `{"sid_start":"tt1234567","sid_end":"tt2222222",` +
-			`"asid_start":null,"asid_end":null}`, false, true},
-		{"malformed ID", `{"sid_start":"garbage","sid_end":"garbage",` +
-			`"asid_start":null,"asid_end":null}`, false, true},
-		{"inconsistent parts", `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567",` +
-			`"asid_start":null,"asid_end":null}`, false, true},
+		{"different IDs", testCompleteMatchResponse("tt1234567", "tt2222222"), false, true},
+		{"malformed ID", testCompleteMatchResponse("garbage", "garbage"), false, true},
+		{"inconsistent parts", testCompleteMatchResponse("tt1234567:1:2", "tt1234567"), false, true},
 		{"missing end", `{"sid_start":"tt1234567"}`, false, true},
 	}
 	for _, tc := range cases {

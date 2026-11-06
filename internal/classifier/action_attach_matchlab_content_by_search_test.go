@@ -12,6 +12,14 @@ import (
 	"github.com/bitmagnet-io/bitmagnet/internal/model"
 )
 
+// matchlabTestCompleteResponse returns the complete four-field API contract.
+func matchlabTestCompleteResponse(start, end string) string {
+	return fmt.Sprintf(
+		`{"sid_start":%q,"sid_end":%q,"asid_start":null,"asid_end":null}`,
+		start, end,
+	)
+}
+
 func TestMatchlabClient(t *testing.T) {
 	t.Parallel()
 
@@ -20,8 +28,7 @@ func TestMatchlabClient(t *testing.T) {
 			t.Errorf("unexpected MatchLab request: %s", r.URL.String())
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:2","sid_end":"tt1234567:1:2",` +
-			`"asid_start":null,"asid_end":null}`)
+		_, _ = fmt.Fprint(w, matchlabTestCompleteResponse("tt1234567:1:2", "tt1234567:1:2"))
 	}))
 	defer server.Close()
 	client, err := newTestMatchlabClient(server.URL)
@@ -52,8 +59,7 @@ func TestMatchlabRangeAndInvalidConfig(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567:1:1","sid_end":"tt1234567:1:5",` +
-			`"asid_start":null,"asid_end":null}`)
+		_, _ = fmt.Fprint(w, matchlabTestCompleteResponse("tt1234567:1:1", "tt1234567:1:5"))
 	}))
 	defer server.Close()
 	client, _ := newTestMatchlabClient(server.URL)
