@@ -60,6 +60,10 @@ func TestMatchNoFallbackOnEmptyAndInvalidIdentities(t *testing.T) {
 		{"unmatched", `{"sid_start":null,"sid_end":null,` +
 			`"asid_start":null,"asid_end":null}`, false, false},
 		{"truncated no-match", `{"sid_start":null,"sid_end":null}`, false, true},
+		{"trailing JSON", `{"sid_start":null,"sid_end":null,` +
+			`"asid_start":null,"asid_end":null}{}`, false, true},
+		{"unknown field", `{"sid_start":null,"sid_end":null,` +
+			`"asid_start":null,"asid_end":null,"unexpected":1}`, false, true},
 		{"movie", `{"sid_start":"tt1234567","sid_end":"tt1234567",` +
 			`"asid_start":null,"asid_end":null}`, true, false},
 		{"anidb only", `{"sid_start":null,"sid_end":null,` +

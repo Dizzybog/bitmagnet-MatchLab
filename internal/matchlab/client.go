@@ -159,6 +159,15 @@ func (c *httpClient) request(ctx context.Context, path string, title string, out
 	if err := decoder.Decode(out); err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalidResponse, err)
 	}
+	// An otherwise valid identity followed by another JSON value must not
+	// be silently accepted as an authoritative MatchLab response.
+	var trailing json.RawMessage
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("%w: multiple JSON values", ErrInvalidResponse)
+		}
+		return fmt.Errorf("%w: invalid trailing JSON: %w", ErrInvalidResponse, err)
+	}
 	return nil
 }
 
