@@ -198,8 +198,10 @@ func TestMatchLabBlocksDirectTitleSearchActionsInCustomWorkflows(t *testing.T) {
 				Context: context.Background(),
 				dependencies: dependencies{matchlabClient: api},
 				result: classification.Result{
-					BaseTitle:   model.NewNullString("Example Movie"),
-					ContentType: model.NewNullContentType(model.ContentTypeMovie),
+					ContentAttributes: classification.ContentAttributes{
+						BaseTitle:   model.NewNullString("Example Movie"),
+						ContentType: model.NewNullContentType(model.ContentTypeMovie),
+					},
 				},
 			})
 			if !errors.Is(runErr, classification.ErrUnmatched) {
