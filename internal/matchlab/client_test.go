@@ -13,7 +13,10 @@ import (
 
 const (
 	testUnmatchedResponse = `{"sid_start":null,"sid_end":null,"asid_start":null,"asid_end":null}`
-	testAniDBOnlyResponse = `{"sid_start":null,"sid_end":null,"asid_start":"14951:1","asid_end":"14951:1"}`
+	testAniDBOnlyResponse = `{
+"sid_start":null,"sid_end":null,
+"asid_start":"14951:1","asid_end":"14951:1"
+}`
 	testIMDbID = "tt1234567"
 )
 
