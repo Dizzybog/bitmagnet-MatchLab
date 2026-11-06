@@ -174,6 +174,68 @@ func TestMatchLabIMDbIdentitySurvivesTMDBEnrichment(t *testing.T) {
 }
 
 
+
+func TestMatchLabBareIMDbIDUsesTMDBMediaTypeWithoutTitleSearch(t *testing.T) {
+	t.Parallel()
+	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case matchlabTestMatchPath:
+			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567"}`)
+		case matchlabTestParsePath:
+			_, _ = fmt.Fprint(w, `{"title":"Example Show","year":2024}`)
+		default:
+			t.Errorf("unexpected request %s", r.URL.Path)
+		}
+	})
+	client := tmdb_mocks.NewClient(t)
+	var lookup tmdb.FindByIDResponse
+	if err := json.Unmarshal([]byte(`{"tv_results":[{"id":42}]}`), &lookup); err != nil {
+		t.Fatal(err)
+	}
+	client.On("FindByID", mock.Anything, tmdb.FindByIDRequest{
+		ExternalSource: "imdb_id", ExternalID: matchlabTestIMDbID,
+	}).Return(lookup, nil).Once()
+	client.On("TvDetails", mock.Anything, tmdb.TvDetailsRequest{
+		SeriesID: 42, AppendToResponse: []string{"external_ids"},
+	}).Return(tmdb.TvDetailsResponse{ID: 42, Name: "Example Show"}, nil).Once()
+	workflow, torrent := runWithMatchLab(t, api, true, client)
+	result, err := workflow.Run(context.Background(), "default", nil, torrent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Content == nil || result.Content.Type != model.ContentTypeTvShow ||
+		result.Content.Source != model.SourceImdb || result.Content.ID != matchlabTestIMDbID {
+		t.Fatalf("bare SID should use TV metadata type without changing IMDb identity: %+v", result.Content)
+	}
+}
+
+func TestMatchLabKeepsIMDbIdentityWhenTMDBReturnsNotFound(t *testing.T) {
+	t.Parallel()
+	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case matchlabTestMatchPath:
+			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567"}`)
+		case matchlabTestParsePath:
+			_, _ = fmt.Fprint(w, `{"title":"Example Movie","year":2024}`)
+		default:
+			t.Errorf("unexpected request %s", r.URL.Path)
+		}
+	})
+	client := tmdb_mocks.NewClient(t)
+	client.On("FindByID", mock.Anything, tmdb.FindByIDRequest{
+		ExternalSource: "imdb_id", ExternalID: matchlabTestIMDbID,
+	}).Return(tmdb.FindByIDResponse{}, tmdb.ErrNotFound).Once()
+	workflow, torrent := runWithMatchLab(t, api, true, client)
+	result, err := workflow.Run(context.Background(), "default", nil, torrent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Content == nil || result.Content.Source != model.SourceImdb ||
+		result.Content.ID != matchlabTestIMDbID || result.Content.Type != model.ContentTypeMovie {
+		t.Fatalf("TMDB not-found must retain the verified IMDb identity: %+v", result.Content)
+	}
+}
+
 func TestMatchLabOverridesStaleMovieHintAndPreviouslyAttachedContent(t *testing.T) {
 	t.Parallel()
 	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {

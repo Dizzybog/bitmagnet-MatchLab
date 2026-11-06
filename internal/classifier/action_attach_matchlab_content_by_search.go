@@ -10,6 +10,7 @@ import (
 	"github.com/bitmagnet-io/bitmagnet/internal/classifier/classification"
 	"github.com/bitmagnet-io/bitmagnet/internal/matchlab"
 	"github.com/bitmagnet-io/bitmagnet/internal/model"
+	"github.com/bitmagnet-io/bitmagnet/internal/tmdb"
 )
 
 // MatchLab's /match response, not the local parser, determines IMDb identity,
@@ -145,9 +146,36 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext) (a
 		}
 
 		if ctx.tmdbEnabled && ctx.tmdbClient != nil {
-			ref := model.ContentRef{Type: contentType, Source: model.SourceImdb, ID: imdb}
-			tmdbID, lookupErr := ctx.tmdbGetTMDBIDByExternalID(ref)
-			if lookupErr == nil {
+			// Lookup by MatchLab's verified IMDb ID only. The same response
+			// identifies the TMDB media type if MatchLab returned a bare SID.
+			lookup, lookupErr := ctx.tmdbClient.FindByID(ctx.Context, tmdb.FindByIDRequest{
+				ExternalSource: "imdb_id",
+				ExternalID:     imdb,
+			})
+			if lookupErr != nil && !errors.Is(lookupErr, tmdb.ErrNotFound) {
+				return cl, fmt.Errorf("TMDB external ID lookup for %s: %w", imdb, lookupErr)
+			}
+
+			var tmdbID int64
+			switch contentType {
+			case model.ContentTypeTvShow:
+				if len(lookup.TvResults) > 0 {
+					tmdbID = lookup.TvResults[0].ID
+				}
+			case model.ContentTypeMovie:
+				if len(lookup.MovieResults) > 0 {
+					tmdbID = lookup.MovieResults[0].ID
+				} else if len(lookup.TvResults) > 0 {
+					// A bare IMDb SID does not itself distinguish a film from
+					// a series; TMDB may clarify the type, never the identity.
+					contentType = model.ContentTypeTvShow
+					content.Type = contentType
+					cl.ContentType = model.NewNullContentType(contentType)
+					tmdbID = lookup.TvResults[0].ID
+				}
+			}
+
+			if tmdbID > 0 {
 				var details model.Content
 				var detailsErr error
 				if contentType == model.ContentTypeTvShow {
@@ -156,8 +184,7 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext) (a
 					details, detailsErr = ctx.tmdbGetMovieByTMDBID(tmdbID)
 				}
 				if detailsErr == nil {
-					// TMDB provides metadata, not identity. Keep MatchLab's
-					// verified IMDb ID as the canonical content key.
+					// TMDB enriches metadata, not identity.
 					details.Type = contentType
 					details.Source = model.SourceImdb
 					details.ID = imdb
@@ -169,8 +196,6 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext) (a
 				} else if !errors.Is(detailsErr, classification.ErrUnmatched) {
 					return cl, fmt.Errorf("TMDB metadata lookup for %s: %w", imdb, detailsErr)
 				}
-			} else if !errors.Is(lookupErr, classification.ErrUnmatched) {
-				return cl, fmt.Errorf("TMDB external ID lookup for %s: %w", imdb, lookupErr)
 			}
 		}
 		cl.AttachContent(&content)
