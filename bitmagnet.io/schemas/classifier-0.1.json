@@ -39,7 +39,7 @@
     },
     "action__attach_matchlab_content_by_search": {
       "const": "attach_matchlab_content_by_search",
-      "description": "Identify a torrent using the optional MatchLab API and attach IMDb content"
+      "description": "Identify a release with MatchLab, then retrieve metadata by verified IMDb ID from TMDB"
     },
     "action__attach_tmdb_content_by_id": {
       "const": "attach_tmdb_content_by_id",

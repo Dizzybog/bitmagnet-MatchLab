@@ -12,6 +12,11 @@ permissions:
   contents: read
   packages: write
 
+# Only run the newest validation/build attempt for a PR or branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   docker:
     runs-on: ubuntu-latest
