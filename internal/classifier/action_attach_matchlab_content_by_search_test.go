@@ -13,6 +13,8 @@ import (
 )
 
 // matchlabTestCompleteResponse returns the complete four-field API contract.
+const matchlabTestEpisodeID = "tt1234567:1:2"
+
 func matchlabTestCompleteResponse(start, end string) string {
 	return fmt.Sprintf(
 		`{"sid_start":%q,"sid_end":%q,"asid_start":null,"asid_end":null}`,
@@ -28,7 +30,7 @@ func TestMatchlabClient(t *testing.T) {
 			t.Errorf("unexpected MatchLab request: %s", r.URL.String())
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprint(w, matchlabTestCompleteResponse("tt1234567:1:2", "tt1234567:1:2"))
+		_, _ = fmt.Fprint(w, matchlabTestCompleteResponse(matchlabTestEpisodeID, matchlabTestEpisodeID))
 	}))
 	defer server.Close()
 	client, err := newTestMatchlabClient(server.URL)
@@ -36,7 +38,7 @@ func TestMatchlabClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	matched, found, err := client.Match(context.Background(), "Example.Show.S01E02")
-	if err != nil || !found || matched.SIDStart == nil || *matched.SIDStart != "tt1234567:1:2" {
+	if err != nil || !found || matched.SIDStart == nil || *matched.SIDStart != matchlabTestEpisodeID {
 		t.Fatalf("got %+v, %v, %v", matched, found, err)
 	}
 }

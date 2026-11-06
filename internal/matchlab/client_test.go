@@ -14,6 +14,7 @@ import (
 const (
 	testUnmatchedResponse = `{"sid_start":null,"sid_end":null,"asid_start":null,"asid_end":null}`
 	testAniDBOnlyResponse = `{"sid_start":null,"sid_end":null,"asid_start":"14951:1","asid_end":"14951:1"}`
+	testIMDbID = "tt1234567"
 )
 
 // testCompleteMatchResponse constructs the full /match schema without
@@ -55,7 +56,7 @@ func TestClientMatchAndParse(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("match: %+v %v %v", result, found, err)
 	}
-	if id, ok := IMDbID(result); !ok || id != "tt1234567" || !result.IsSeries() {
+	if id, ok := IMDbID(result); !ok || id != testIMDbID || !result.IsSeries() {
 		t.Fatalf("invalid identity %+v", result)
 	}
 	parsed, err := client.Parse(context.Background(), "Some.Show.S01E02")
@@ -82,11 +83,11 @@ func TestMatchNoFallbackOnEmptyAndInvalidIdentities(t *testing.T) {
 			body:      `{"sid_start":null,"sid_end":null,"asid_start":null,"asid_end":null,"unexpected":1}`,
 			wantError: true,
 		},
-		{"movie", testCompleteMatchResponse("tt1234567", "tt1234567"), true, false},
+		{"movie", testCompleteMatchResponse(testIMDbID, testIMDbID), true, false},
 		{"anidb only", testAniDBOnlyResponse, true, false},
-		{"different IDs", testCompleteMatchResponse("tt1234567", "tt2222222"), false, true},
+		{"different IDs", testCompleteMatchResponse(testIMDbID, "tt2222222"), false, true},
 		{"malformed ID", testCompleteMatchResponse("garbage", "garbage"), false, true},
-		{"inconsistent parts", testCompleteMatchResponse("tt1234567:1:2", "tt1234567"), false, true},
+		{"inconsistent parts", testCompleteMatchResponse("tt1234567:1:2", testIMDbID), false, true},
 		{"missing end", `{"sid_start":"tt1234567"}`, false, true},
 	}
 	for _, tc := range cases {
