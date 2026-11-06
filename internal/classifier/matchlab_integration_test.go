@@ -173,7 +173,46 @@ func TestMatchLabIMDbIdentitySurvivesTMDBEnrichment(t *testing.T) {
 	}
 }
 
-func TestMatchLabBlocksDirectTitleSearchActionsInCustomWorkflows(t *testing.T) {
+
+func TestMatchLabOverridesStaleMovieHintAndPreviouslyAttachedContent(t *testing.T) {
+	t.Parallel()
+	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case matchlabTestMatchPath:
+			_, _ = fmt.Fprint(w, `{"sid_start":"tt1234567","sid_end":"tt1234567"}`)
+		case matchlabTestParsePath:
+			_, _ = fmt.Fprint(w, `{"title":"Example Movie","year":2024}`)
+		default:
+			t.Errorf("unexpected MatchLab path %q", r.URL.Path)
+		}
+	})
+	workflow, torrent := runWithMatchLab(t, api, false, tmdb_mocks.NewClient(t))
+	oldID := "tt7654321"
+	torrent.Hint = model.TorrentHint{
+		ContentType:   model.ContentTypeMovie,
+		ContentSource: model.NewNullString(model.SourceImdb),
+		ContentID:     model.NewNullString(oldID),
+	}
+	torrent.Contents = []model.TorrentContent{{
+		ContentType:   model.NewNullContentType(model.ContentTypeMovie),
+		ContentSource: model.NewNullString(model.SourceImdb),
+		ContentID:     model.NewNullString(oldID),
+		Content: model.Content{
+			Type: model.ContentTypeMovie, Source: model.SourceImdb,
+			ID: oldID, Title: "Stale IMDb identity",
+		},
+	}}
+	result, err := workflow.Run(context.Background(), "default", nil, torrent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Content == nil || result.Content.Source != model.SourceImdb ||
+		result.Content.ID != matchlabTestIMDbID {
+		t.Fatalf("MatchLab must replace stale cached identity: %+v", result.Content)
+	}
+}
+
+func TestMatchLabBlocksDirectIdentitySearchActionsInCustomWorkflows(t *testing.T) {
 	t.Parallel()
 	api, err := matchlab.NewClient(matchlab.Config{
 		URL: "http://127.0.0.1:1", TimeoutSeconds: 2, MaxConcurrent: 1,
@@ -187,6 +226,8 @@ func TestMatchLabBlocksDirectTitleSearchActionsInCustomWorkflows(t *testing.T) {
 	}{
 		{"local title search", attachLocalContentBySearchAction{}},
 		{"TMDB title search", attachTmdbContentBySearchAction{}},
+		{"local ID lookup", attachLocalContentByIDAction{}},
+		{"TMDB ID lookup", attachTMDBContentByIDAction{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -197,6 +238,11 @@ func TestMatchLabBlocksDirectTitleSearchActionsInCustomWorkflows(t *testing.T) {
 			_, runErr := compiled.run(executionContext{
 				Context: context.Background(),
 				dependencies: dependencies{matchlabClient: api},
+				torrent: model.Torrent{Hint: model.TorrentHint{
+					ContentType: model.ContentTypeMovie,
+					ContentSource: model.NewNullString(model.SourceImdb),
+					ContentID: model.NewNullString("tt7654321"),
+				}},
 				result: classification.Result{
 					ContentAttributes: classification.ContentAttributes{
 						BaseTitle:   model.NewNullString("Example Movie"),
