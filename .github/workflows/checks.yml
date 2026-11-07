@@ -26,7 +26,8 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1.6
+          # v2.1.6 was built against Go 1.24 and panics on Go 1.25 sources.
+          version: latest
           args: --timeout=10m
 
   test:
