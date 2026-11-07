@@ -28,21 +28,16 @@ func (l localSearch) ContentByID(ctx context.Context, ref model.ContentRef) (mod
 		search.ContentDefaultHydrate(),
 		query.Limit(1),
 	}
-	if ref.Source == "tmdb" {
-		options = append(options, query.Where(
-			search.ContentCanonicalIdentifierCriteria(model.ContentRef{
-				Source: ref.Source,
-				ID:     ref.ID,
-			}),
-		))
-	} else {
-		options = append(options, query.Where(
-			search.ContentAlternativeIdentifierCriteria(model.ContentRef{
-				Source: ref.Source,
-				ID:     ref.ID,
-			}),
-		))
-	}
+	// Imported/MatchLab-enriched IMDb content can store the IMDb ID as
+	// its canonical key, whereas native TMDB metadata usually stores it as
+	// an alternative identifier. Search both representations so a local
+	// lookup still works after disconnecting MatchLab.
+	options = append(options, query.Where(
+		search.ContentIdentifierCriteria(model.ContentRef{
+			Source: ref.Source,
+			ID:     ref.ID,
+		}),
+	))
 
 	result, err := l.Content(ctx, options...)
 	if err != nil {
