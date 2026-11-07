@@ -49,6 +49,11 @@ func (r runner) Run(ctx context.Context, workflow string, flags Flags, t model.T
 	if r.matchlabClient != nil {
 		cfs["matchlab_enabled"] = types.Bool(true)
 		cfs["local_search_enabled"] = types.Bool(false)
+	} else {
+		// Queued jobs can survive a config change/restart. Never trust a
+		// stale runtime matchlab_enabled=true flag after removing MATCHLAB_URL:
+		// it would disable both MatchLab and the native search path.
+		cfs["matchlab_enabled"] = types.Bool(false)
 	}
 
 	cl := classification.Result{}

@@ -34,7 +34,9 @@ With `MATCHLAB_URL` set:
 
 When MatchLab is configured, existing **movie/TV ID hints and previously attached content do not bypass MatchLab**: their identities are reverified against the original torrent name. Hints for other content types keep their existing behavior. To re-evaluate previously indexed torrents, enqueue a **rematch/reprocess** job from the normal Bitmagnet queue dashboard.
 
-When `MATCHLAB_URL` is **unset**, the original Bitmagnet workflow is retained: local content lookup and TMDB title matching operate as before. Global `classifier.flags.apis_enabled: false` still disables external matching calls. Runtime queue flags cannot silently re-enable local title matching when the MatchLab provider is configured.
+When `MATCHLAB_URL` is **unset**, Bitmagnet uses the original local content lookup and TMDB title matching workflow again, **even if it previously ran with MatchLab**. Jobs queued before disconnect may still contain `matchlab_enabled: true`; the classifier ignores this stale flag when no MatchLab client is configured, while still respecting `apis_enabled` and `local_search_enabled`. Existing IMDb-keyed content is preserved and remains discoverable by local ID lookup (both canonical and alternate IMDb IDs). No MatchLab request or MatchLab health dependency remains when the URL is absent. When the URL is present, runtime queue flags cannot silently re-enable local title matching.
+
+**Switching back after using MatchLab:** remove `MATCHLAB_URL` (and any `matchlab.url` YAML setting), restart Bitmagnet, and keep the existing database. Already classified torrents retain their existing content and are not mass-deleted or automatically reclassified. For previously classified torrents to **receive new native/TMDB identification**, run the existing Queues → Reprocess/Rematch action after the switch. This is intentionally explicit: silently rematching millions of historical torrents at startup would produce heavy database/API load. Native classification applies immediately to new work and queued tasks.
 
 ### Failure behavior and queue processing
 
