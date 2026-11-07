@@ -8,18 +8,17 @@ import (
 
 	"github.com/bitmagnet-io/bitmagnet/internal/model"
 	tmdb_mocks "github.com/bitmagnet-io/bitmagnet/internal/tmdb/mocks"
-
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	optOutMatchLabFlag = "matchlab_enabled"
+	optOutMatchLabFlag    = "matchlab_enabled"
 	optOutLocalSearchFlag = "local_search_enabled"
-	optOutAPIsFlag = "apis_enabled"
-	optOutLocalSource = "local"
-	optOutLocalTitle = "The Regular Local Movie"
-	optOutIMDbID = "tt1234567"
+	optOutAPIsFlag        = "apis_enabled"
+	optOutLocalSource     = "local"
+	optOutLocalTitle      = "The Regular Local Movie"
+	optOutIMDbID          = "tt1234567"
 )
 
 func TestNativeSearchAfterMatchLabDisconnectWithStaleQueuedFlag(t *testing.T) {
@@ -48,9 +47,9 @@ func TestNativeSearchAfterMatchLabDisconnectWithStaleQueuedFlag(t *testing.T) {
 	// contain matchlab_enabled=true even after its URL has been removed.
 	// Native search must work without MatchLab or TMDB network access.
 	result, err := workflow.Run(context.Background(), "default", Flags{
-		optOutMatchLabFlag:     true,
+		optOutMatchLabFlag:    true,
 		optOutLocalSearchFlag: true,
-		optOutAPIsFlag:         false,
+		optOutAPIsFlag:        false,
 	}, torrent)
 	require.NoError(t, err)
 	require.NotNil(t, result.Content)
@@ -68,10 +67,10 @@ func TestNativeModePreservesPreviouslyStoredMatchLabIMDbContent(t *testing.T) {
 	require.NoError(t, err)
 
 	stored := model.Content{
-		Type: model.ContentTypeMovie,
+		Type:   model.ContentTypeMovie,
 		Source: model.SourceImdb,
-		ID: optOutIMDbID,
-		Title: "Verified Movie",
+		ID:     optOutIMDbID,
+		Title:  "Verified Movie",
 	}
 	torrent := model.Torrent{
 		Name: "Verified.Movie.2024.mkv",
@@ -90,9 +89,9 @@ func TestNativeModePreservesPreviouslyStoredMatchLabIMDbContent(t *testing.T) {
 	// The normal Bitmagnet classification path reuses an existing verified
 	// hint. Disconnecting MatchLab must not erase usable stored metadata.
 	result, err := workflow.Run(context.Background(), "default", Flags{
-		optOutMatchLabFlag:     true,
+		optOutMatchLabFlag:    true,
 		optOutLocalSearchFlag: true,
-		optOutAPIsFlag:         false,
+		optOutAPIsFlag:        false,
 	}, torrent)
 	require.NoError(t, err)
 	require.NotNil(t, result.Content)
@@ -116,9 +115,9 @@ func TestDisconnectedMatchLabDoesNotForceNativeSearchAgainstUserChoice(t *testin
 		Size:        1000000000,
 	}
 	result, err := workflow.Run(context.Background(), "default", Flags{
-		optOutMatchLabFlag:     true,
+		optOutMatchLabFlag:    true,
 		optOutLocalSearchFlag: false,
-		optOutAPIsFlag:         false,
+		optOutAPIsFlag:        false,
 	}, torrent)
 	require.NoError(t, err)
 	require.Nil(t, result.Content)
@@ -164,9 +163,9 @@ func TestConnectThenDisconnectMatchLabRetainsContentAndNativeMode(t *testing.T) 
 	native, err := nativeMocks.compiler.Compile(source)
 	require.NoError(t, err)
 	restored, err := native.Run(context.Background(), "default", Flags{
-		optOutMatchLabFlag:     true, // persisted before disconnection
+		optOutMatchLabFlag:    true, // persisted before disconnection
 		optOutLocalSearchFlag: true,
-		optOutAPIsFlag:         false,
+		optOutAPIsFlag:        false,
 	}, torrent)
 	require.NoError(t, err)
 	require.NotNil(t, restored.Content)
