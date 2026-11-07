@@ -13,7 +13,22 @@ func TestCIDockerfileVersionMatchesReportedVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	versionArg := regexp.MustCompile(`(?m)^ARG VERSION=(v[0-9]+\\.[0-9]+\\.[0-9]+)$`)
+	versionArg := regexp.MustCompile(`(?m)^ARG VERSION=(v[0-9]+[.][0-9]+[.][0-9]+)package version
+
+import (
+	"os"
+	"regexp"
+	"testing"
+)
+
+// Keep the alternate CI Dockerfile's default version consistent with the
+// dashboard/GraphQL/health version. Release builds may override both at build time.
+func TestCIDockerfileVersionMatchesReportedVersion(t *testing.T) {
+	content, err := os.ReadFile("../../ci.Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	versionArg := )
 	matches := versionArg.FindStringSubmatch(string(content))
 	if len(matches) != 2 {
 		t.Fatal("ci.Dockerfile must declare a semver ARG VERSION default")
