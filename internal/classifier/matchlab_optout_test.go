@@ -38,9 +38,9 @@ func TestNativeSearchAfterMatchLabDisconnectWithStaleQueuedFlag(t *testing.T) {
 	// contain matchlab_enabled=true even after its URL has been removed.
 	// Native search must work without MatchLab or TMDB network access.
 	result, err := workflow.Run(context.Background(), "default", Flags{
-		"matchlab_enabled": true,
+		"matchlab_enabled":     true,
 		"local_search_enabled": true,
-		"apis_enabled": false,
+		"apis_enabled":         false,
 	}, torrent)
 	require.NoError(t, err)
 	require.NotNil(t, result.Content)
@@ -62,23 +62,23 @@ func TestNativeModePreservesPreviouslyStoredMatchLabIMDbContent(t *testing.T) {
 	torrent := model.Torrent{
 		Name: "Verified.Movie.2024.mkv",
 		Hint: model.TorrentHint{
-			ContentType: model.ContentTypeMovie,
+			ContentType:   model.ContentTypeMovie,
 			ContentSource: model.NewNullString(model.SourceImdb),
-			ContentID: model.NewNullString("tt1234567"),
+			ContentID:     model.NewNullString("tt1234567"),
 		},
 		Contents: []model.TorrentContent{{
-			ContentType: model.NewNullContentType(model.ContentTypeMovie),
+			ContentType:   model.NewNullContentType(model.ContentTypeMovie),
 			ContentSource: model.NewNullString(model.SourceImdb),
-			ContentID: model.NewNullString("tt1234567"),
-			Content: stored,
+			ContentID:     model.NewNullString("tt1234567"),
+			Content:       stored,
 		}},
 	}
 	// The normal Bitmagnet classification path reuses an existing verified
 	// hint. Disconnecting MatchLab must not erase usable stored metadata.
 	result, err := workflow.Run(context.Background(), "default", Flags{
-		"matchlab_enabled": true,
+		"matchlab_enabled":     true,
 		"local_search_enabled": true,
-		"apis_enabled": false,
+		"apis_enabled":         false,
 	}, torrent)
 	require.NoError(t, err)
 	require.NotNil(t, result.Content)
@@ -96,15 +96,15 @@ func TestDisconnectedMatchLabDoesNotForceNativeSearchAgainstUserChoice(t *testin
 	require.NoError(t, err)
 
 	torrent := model.Torrent{
-		Name: "The Regular Movie (2000).mkv",
+		Name:        "The Regular Movie (2000).mkv",
 		FilesStatus: model.FilesStatusSingle,
-		Extension: model.NewNullString("mkv"),
-		Size: 1000000000,
+		Extension:   model.NewNullString("mkv"),
+		Size:        1000000000,
 	}
 	result, err := workflow.Run(context.Background(), "default", Flags{
-		"matchlab_enabled": true,
+		"matchlab_enabled":     true,
 		"local_search_enabled": false,
-		"apis_enabled": false,
+		"apis_enabled":         false,
 	}, torrent)
 	require.NoError(t, err)
 	require.Nil(t, result.Content)
@@ -134,14 +134,14 @@ func TestConnectThenDisconnectMatchLabRetainsContentAndNativeMode(t *testing.T) 
 	// during normal reprocessing, then restart without MATCHLAB_URL.
 	stored := *identified.Content
 	torrent.Hint = model.TorrentHint{
-		ContentType: stored.Type,
+		ContentType:   stored.Type,
 		ContentSource: model.NewNullString(stored.Source),
-		ContentID: model.NewNullString(stored.ID),
+		ContentID:     model.NewNullString(stored.ID),
 	}
 	torrent.Contents = []model.TorrentContent{{
-		ContentType: model.NewNullContentType(stored.Type),
+		ContentType:   model.NewNullContentType(stored.Type),
 		ContentSource: model.NewNullString(stored.Source),
-		ContentID: model.NewNullString(stored.ID),
+		ContentID:     model.NewNullString(stored.ID),
 		Content: stored,
 	}}
 	nativeMocks := newTestClassifierMocks(t)
@@ -150,9 +150,9 @@ func TestConnectThenDisconnectMatchLabRetainsContentAndNativeMode(t *testing.T) 
 	native, err := nativeMocks.compiler.Compile(source)
 	require.NoError(t, err)
 	restored, err := native.Run(context.Background(), "default", Flags{
-		"matchlab_enabled": true, // persisted before disconnection
+		"matchlab_enabled":     true, // persisted before disconnection
 		"local_search_enabled": true,
-		"apis_enabled": false,
+		"apis_enabled":         false,
 	}, torrent)
 	require.NoError(t, err)
 	require.NotNil(t, restored.Content)
