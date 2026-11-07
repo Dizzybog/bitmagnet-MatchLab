@@ -31,13 +31,11 @@ Preserve the existing Bitmagnet image, database, ports, volumes, network and oth
 
 ### Configuration keys
 
-| Configuration key | Environment variable | Default | Valid range / purpose |
-| --- | --- | --- | --- |
-| `matchlab.url` | `MATCHLAB_URL` | empty | HTTP(S) base URL; empty disables MatchLab |
-| `matchlab.timeout_seconds` | `MATCHLAB_TIMEOUT_SECONDS` | `8` | 1–120 seconds per request |
-| `matchlab.max_concurrent` | `MATCHLAB_MAX_CONCURRENT` | `4` | 1–64 concurrent outbound MatchLab calls |
-| `tmdb.enabled` | `TMDB_ENABLED` | `true` | Optional TMDB enrichment of verified identities |
-| `classifier.concurrency` | `CLASSIFIER_CONCURRENCY` | `10` | Overall classifier concurrency |
+- `matchlab.url` / `MATCHLAB_URL`: MatchLab HTTP(S) base URL (empty by default; disables the integration).
+- `matchlab.timeout_seconds` / `MATCHLAB_TIMEOUT_SECONDS`: Per-request timeout, default `8` seconds (allowed 1–120).
+- `matchlab.max_concurrent` / `MATCHLAB_MAX_CONCURRENT`: Maximum concurrent MatchLab calls, default `4` (allowed 1–64).
+- `tmdb.enabled` / `TMDB_ENABLED`: Enable TMDB metadata enrichment, default `true`.
+- `classifier.concurrency` / `CLASSIFIER_CONCURRENCY`: Overall classifier concurrency, default `10`.
 
 The same settings may be supplied through Bitmagnet's normal `config.yml` configuration:
 
