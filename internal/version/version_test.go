@@ -9,6 +9,8 @@ import (
 // Prevent the fallback multi-architecture Docker build from reporting a
 // different version than the dashboard, GraphQL and health endpoint.
 func TestCIDockerfileVersionMatchesReportedVersion(t *testing.T) {
+	t.Parallel()
+
 	content, err := os.ReadFile("../../ci.Dockerfile")
 	if err != nil {
 		t.Fatal(err)
