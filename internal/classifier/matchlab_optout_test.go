@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bitmagnet-io/bitmagnet/internal/classifier/classification"
 	"github.com/bitmagnet-io/bitmagnet/internal/model"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -106,5 +105,4 @@ func TestDisconnectedMatchLabDoesNotForceNativeSearchAgainstUserChoice(t *testin
 	}, torrent)
 	require.NoError(t, err)
 	require.Nil(t, result.Content)
-	_ = classification.ErrUnmatched
 }
