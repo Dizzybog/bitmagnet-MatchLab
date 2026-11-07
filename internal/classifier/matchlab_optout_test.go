@@ -2,9 +2,12 @@ package classifier
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/bitmagnet-io/bitmagnet/internal/model"
+	tmdb_mocks "github.com/bitmagnet-io/bitmagnet/internal/tmdb/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -105,4 +108,54 @@ func TestDisconnectedMatchLabDoesNotForceNativeSearchAgainstUserChoice(t *testin
 	}, torrent)
 	require.NoError(t, err)
 	require.Nil(t, result.Content)
+}
+
+func TestConnectThenDisconnectMatchLabRetainsContentAndNativeMode(t *testing.T) {
+	t.Parallel()
+
+	api := testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case matchlabTestMatchPath:
+			_, _ = fmt.Fprint(w, matchlabTestCompleteResponse("tt1234567", "tt1234567"))
+		case matchlabTestParsePath:
+			_, _ = fmt.Fprint(w, `{"title":"Verified Movie","year":2024}`)
+		default:
+			t.Errorf("unexpected MatchLab request %q", r.URL.Path)
+		}
+	})
+	remote, torrent := runWithMatchLab(t, api, false, tmdb_mocks.NewClient(t))
+	identified, err := remote.Run(context.Background(), "default", nil, torrent)
+	require.NoError(t, err)
+	require.NotNil(t, identified.Content)
+	require.Equal(t, model.SourceImdb, identified.Content.Source)
+	require.Equal(t, "tt1234567", identified.Content.ID)
+
+	// Simulate the saved torrent_contents record becoming a content hint
+	// during normal reprocessing, then restart without MATCHLAB_URL.
+	stored := *identified.Content
+	torrent.Hint = model.TorrentHint{
+		ContentType: stored.Type,
+		ContentSource: model.NewNullString(stored.Source),
+		ContentID: model.NewNullString(stored.ID),
+	}
+	torrent.Contents = []model.TorrentContent{{
+		ContentType: model.NewNullContentType(stored.Type),
+		ContentSource: model.NewNullString(stored.Source),
+		ContentID: model.NewNullString(stored.ID),
+		Content: stored,
+	}}
+	nativeMocks := newTestClassifierMocks(t)
+	source, err := (yamlSourceProvider{rawSourceProvider: coreSourceProvider{}}).source()
+	require.NoError(t, err)
+	native, err := nativeMocks.compiler.Compile(source)
+	require.NoError(t, err)
+	restored, err := native.Run(context.Background(), "default", Flags{
+		"matchlab_enabled": true, // persisted before disconnection
+		"local_search_enabled": true,
+		"apis_enabled": false,
+	}, torrent)
+	require.NoError(t, err)
+	require.NotNil(t, restored.Content)
+	require.Equal(t, stored.ID, restored.Content.ID)
+	require.Equal(t, stored.Source, restored.Content.Source)
 }
