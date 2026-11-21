@@ -39,7 +39,7 @@
     },
     "action__attach_matchlab_content_by_search": {
       "const": "attach_matchlab_content_by_search",
-      "description": "Identify a release with MatchLab, then reuse metadata previously fetched from TMDB for its verified IMDb ID, or retrieve it from TMDB"
+      "description": "Identify a release with MatchLab, then reuse stored TMDB metadata or fetch it by IMDb ID"
     },
     "action__attach_tmdb_content_by_id": {
       "const": "attach_tmdb_content_by_id",

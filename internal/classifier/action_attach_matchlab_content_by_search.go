@@ -89,7 +89,7 @@ func (attachMatchlabContentBySearchAction) name() string { return attachMatchlab
 
 var attachMatchlabContentBySearchPayloadSpec = payloadLiteral[string]{
 	literal:     attachMatchlabContentBySearchName,
-	description: "Identify a release with MatchLab, then reuse metadata previously fetched from TMDB for its verified IMDb ID, or retrieve it from TMDB",
+	description: "Identify a release with MatchLab, then reuse stored TMDB metadata or fetch it by IMDb ID",
 }
 
 func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext) (action, error) {
