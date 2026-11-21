@@ -89,7 +89,7 @@ func (attachMatchlabContentBySearchAction) name() string { return attachMatchlab
 
 var attachMatchlabContentBySearchPayloadSpec = payloadLiteral[string]{
 	literal:     attachMatchlabContentBySearchName,
-	description: "Identify a release with MatchLab, then retrieve metadata by verified IMDb ID from TMDB",
+	description: "Identify a release with MatchLab, then reuse metadata previously fetched from TMDB for its verified IMDb ID, or retrieve it from TMDB",
 }
 
 func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext) (action, error) {
@@ -141,6 +141,17 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext) (a
 			enrichFromParse()
 			return cl, nil
 		}
+		// Metadata fetched from TMDB for this IMDb ID earlier is reused as
+		// stored: no TMDB request for every torrent of an already known title.
+		if local, found := reusableLocalTMDBContent(ctx, contentType, imdb); found {
+			if local.Type != contentType {
+				// A bare IMDb SID: the stored record clarifies a series.
+				cl.ContentType = model.NewNullContentType(local.Type)
+			}
+			cl.AttachContent(&local)
+			return cl, nil
+		}
+
 		content := model.Content{
 			Type: contentType, Source: model.SourceImdb, ID: imdb,
 			Title: ctx.torrent.Name,
@@ -210,6 +221,43 @@ func (attachMatchlabContentBySearchAction) compileAction(ctx compilerContext) (a
 		cl.AttachContent(&content)
 		return cl, nil
 	}}, nil
+}
+
+// reusableLocalTMDBContent returns locally stored content for MatchLab's IMDb
+// ID that was previously enriched from TMDB: canonical IMDb records carrying a
+// TMDB ID attribute, and older TMDB records referencing the IMDb ID. Content
+// stored without TMDB metadata is not reused, so TMDB can still enrich it.
+// A bare IMDb SID (movie) may also be a stored series, as TMDB would clarify.
+// Local search errors fall back to TMDB: the reuse is an optimisation only.
+func reusableLocalTMDBContent(
+	ctx executionContext, contentType model.ContentType, imdb string,
+) (model.Content, bool) {
+	if ctx.search == nil {
+		return model.Content{}, false
+	}
+	types := []model.ContentType{contentType}
+	if contentType == model.ContentTypeMovie {
+		types = append(types, model.ContentTypeTvShow)
+	}
+	for _, candidateType := range types {
+		content, err := ctx.search.ContentByID(ctx.Context, model.ContentRef{
+			Type: candidateType, Source: model.SourceImdb, ID: imdb,
+		})
+		if errors.Is(err, classification.ErrUnmatched) {
+			continue
+		}
+		if err != nil {
+			if ctx.logger != nil {
+				ctx.logger.Warnw("local content lookup unavailable, using TMDB",
+					"imdb_id", imdb, "error", err)
+			}
+			return model.Content{}, false
+		}
+		if _, fromTMDB := content.Identifier(model.SourceTmdb); fromTMDB {
+			return content, true
+		}
+	}
+	return model.Content{}, false
 }
 
 func (attachMatchlabContentBySearchAction) JSONSchema() JSONSchema {
