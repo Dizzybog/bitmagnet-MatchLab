@@ -20,11 +20,21 @@ import (
 
 func runWithMatchLab(t *testing.T, api matchlab.Client, enabledTMDB bool, client tmdb.Client) (Runner, model.Torrent) {
 	t.Helper()
+	search := classifier_mocks.NewLocalSearch(t)
+	// No locally stored content unless a test says otherwise.
+	search.On("ContentByID", mock.Anything, mock.Anything).
+		Return(model.Content{}, classification.ErrUnmatched).Maybe()
+	return runWithMatchLabSearch(t, api, enabledTMDB, client, search)
+}
+
+func runWithMatchLabSearch(
+	t *testing.T, api matchlab.Client, enabledTMDB bool, client tmdb.Client, search LocalSearch,
+) (Runner, model.Torrent) {
+	t.Helper()
 	source, err := (yamlSourceProvider{rawSourceProvider: coreSourceProvider{}}).source()
 	if err != nil {
 		t.Fatal(err)
 	}
-	search := classifier_mocks.NewLocalSearch(t)
 	compiler := compiler{
 		options: []compilerOption{compilerFeatures(defaultFeatures), celEnvOption},
 		dependencies: dependencies{
@@ -337,5 +347,117 @@ func TestMatchLabBlocksDirectIdentitySearchActionsInCustomWorkflows(t *testing.T
 				t.Fatalf("direct search action bypassed configured MatchLab: %v", runErr)
 			}
 		})
+	}
+}
+
+func matchlabTestIdentityOnly(t *testing.T) matchlab.Client {
+	t.Helper()
+	return testMatchLab(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case matchlabTestMatchPath:
+			_, _ = fmt.Fprint(w, matchlabTestCompleteResponse(matchlabTestIMDbID, matchlabTestIMDbID))
+		case matchlabTestParsePath:
+			_, _ = fmt.Fprint(w, `{"title":"Example Movie","year":2024}`)
+		default:
+			t.Errorf("unexpected request %s", r.URL.Path)
+		}
+	})
+}
+
+func TestMatchLabReusesLocalContentPreviouslyFetchedFromTMDB(t *testing.T) {
+	t.Parallel()
+	stored := model.Content{
+		Type: model.ContentTypeMovie, Source: model.SourceImdb, ID: matchlabTestIMDbID,
+		Title: "Stored TMDB Movie", Overview: model.NewNullString("Stored metadata"),
+		Attributes: []model.ContentAttribute{{Source: model.SourceTmdb, Key: "id", Value: "42"}},
+	}
+	search := classifier_mocks.NewLocalSearch(t)
+	search.On("ContentByID", mock.Anything, model.ContentRef{
+		Type: model.ContentTypeMovie, Source: model.SourceImdb, ID: matchlabTestIMDbID,
+	}).Return(stored, nil).Once()
+	// No TMDB expectations: any TMDB request fails the test.
+	client := tmdb_mocks.NewClient(t)
+	workflow, torrent := runWithMatchLabSearch(t, matchlabTestIdentityOnly(t), true, client, search)
+	result, err := workflow.Run(context.Background(), "default", nil, torrent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Content == nil || result.Content.Title != "Stored TMDB Movie" ||
+		result.Content.ID != matchlabTestIMDbID {
+		t.Fatalf("stored TMDB metadata not reused: %+v", result.Content)
+	}
+}
+
+func TestMatchLabReusesAStoredSeriesForABareIMDbID(t *testing.T) {
+	t.Parallel()
+	// An older TMDB record: canonical TMDB ID, IMDb as an alternate ID.
+	stored := model.Content{
+		Type: model.ContentTypeTvShow, Source: model.SourceTmdb, ID: "42", Title: "Naruto",
+		Attributes: []model.ContentAttribute{{Source: model.SourceImdb, Key: "id", Value: matchlabTestIMDbID}},
+	}
+	search := classifier_mocks.NewLocalSearch(t)
+	search.On("ContentByID", mock.Anything, model.ContentRef{
+		Type: model.ContentTypeMovie, Source: model.SourceImdb, ID: matchlabTestIMDbID,
+	}).Return(model.Content{}, classification.ErrUnmatched).Once()
+	search.On("ContentByID", mock.Anything, model.ContentRef{
+		Type: model.ContentTypeTvShow, Source: model.SourceImdb, ID: matchlabTestIMDbID,
+	}).Return(stored, nil).Once()
+	client := tmdb_mocks.NewClient(t)
+	workflow, torrent := runWithMatchLabSearch(t, matchlabTestIdentityOnly(t), true, client, search)
+	result, err := workflow.Run(context.Background(), "default", nil, torrent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Content == nil || result.Content.Title != "Naruto" ||
+		result.ContentType.ContentType != model.ContentTypeTvShow {
+		t.Fatalf("stored series not reused: %+v %v", result.Content, result.ContentType)
+	}
+}
+
+func TestMatchLabRefetchesLocalContentWithoutTMDBMetadata(t *testing.T) {
+	t.Parallel()
+	// Stored from an earlier match without TMDB (only MatchLab's title).
+	stored := model.Content{
+		Type: model.ContentTypeMovie, Source: model.SourceImdb, ID: matchlabTestIMDbID,
+		Title: "Example Movie",
+	}
+	search := classifier_mocks.NewLocalSearch(t)
+	search.On("ContentByID", mock.Anything, mock.Anything).Return(stored, nil)
+	client := tmdb_mocks.NewClient(t)
+	var lookup tmdb.FindByIDResponse
+	if err := json.Unmarshal([]byte(`{"movie_results":[{"id":42}]}`), &lookup); err != nil {
+		t.Fatal(err)
+	}
+	client.On("FindByID", mock.Anything, tmdb.FindByIDRequest{
+		ExternalSource: matchlabTestExternalSource, ExternalID: matchlabTestIMDbID,
+	}).Return(lookup, nil).Once()
+	client.On("MovieDetails", mock.Anything, tmdb.MovieDetailsRequest{ID: 42}).
+		Return(tmdb.MovieDetailsResponse{ID: 42, Title: "TMDB Movie", IMDbID: matchlabTestIMDbID}, nil).Once()
+	workflow, torrent := runWithMatchLabSearch(t, matchlabTestIdentityOnly(t), true, client, search)
+	result, err := workflow.Run(context.Background(), "default", nil, torrent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Content == nil || result.Content.Title != "TMDB Movie" {
+		t.Fatalf("content without TMDB metadata must be enriched: %+v", result.Content)
+	}
+}
+
+func TestMatchLabFallsBackToTMDBWhenLocalLookupFails(t *testing.T) {
+	t.Parallel()
+	search := classifier_mocks.NewLocalSearch(t)
+	search.On("ContentByID", mock.Anything, mock.Anything).
+		Return(model.Content{}, errors.New("database unavailable")).Once()
+	client := tmdb_mocks.NewClient(t)
+	client.On("FindByID", mock.Anything, tmdb.FindByIDRequest{
+		ExternalSource: matchlabTestExternalSource, ExternalID: matchlabTestIMDbID,
+	}).Return(tmdb.FindByIDResponse{}, tmdb.ErrNotFound).Once()
+	workflow, torrent := runWithMatchLabSearch(t, matchlabTestIdentityOnly(t), true, client, search)
+	result, err := workflow.Run(context.Background(), "default", nil, torrent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Content == nil || result.Content.ID != matchlabTestIMDbID {
+		t.Fatalf("a local lookup failure must not lose the match: %+v", result.Content)
 	}
 }
