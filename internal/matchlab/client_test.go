@@ -92,6 +92,10 @@ func TestMatchNoFallbackOnEmptyAndInvalidIdentities(t *testing.T) {
 		{"malformed ID", testCompleteMatchResponse("garbage", "garbage"), false, true},
 		{"inconsistent parts", testCompleteMatchResponse("tt1234567:1:2", testIMDbID), false, true},
 		{"missing end", `{"sid_start":"tt1234567"}`, false, true},
+		// A partially mapped range: MatchLab places only one endpoint.
+		{"range without end", testPartialResponse(`"tt2250192:4:1"`, `null`), true, false},
+		{"range without start", testPartialResponse(`null`, `"tt1584000:2:60"`), true, false},
+		{"malformed partial range", testPartialResponse(`"garbage"`, `null`), false, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -169,4 +173,17 @@ func TestConfigAndCanceledQueueRequest(t *testing.T) {
 	}
 	close(blocked)
 	<-finished
+}
+
+func TestPartialRangeKeepsTheIMDbIdentity(t *testing.T) {
+	t.Parallel()
+	end := "tt1584000:2:60"
+	r := Response{SIDEnd: &end}
+	if id, ok := IMDbID(r); !ok || id != "tt1584000" || !r.IsSeries() {
+		t.Fatalf("partial range lost its identity: %q %v series=%v", id, ok, r.IsSeries())
+	}
+}
+
+func testPartialResponse(start, end string) string {
+	return `{"sid_start":` + start + `,"sid_end":` + end + `,"asid_start":null,"asid_end":null}`
 }
