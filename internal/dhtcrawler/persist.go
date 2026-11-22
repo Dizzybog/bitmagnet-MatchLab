@@ -2,6 +2,7 @@ package dhtcrawler
 
 import (
 	"context"
+	"database/sql/driver"
 	"time"
 
 	"github.com/bitmagnet-io/bitmagnet/internal/database/dao"
@@ -10,7 +11,6 @@ import (
 	"github.com/bitmagnet-io/bitmagnet/internal/protocol"
 	"github.com/bitmagnet-io/bitmagnet/internal/protocol/metainfo"
 	"github.com/prometheus/client_golang/prometheus"
-	"gorm.io/gen"
 	"gorm.io/gorm/clause"
 )
 
@@ -238,6 +238,19 @@ func (c *crawler) runPersistSources(ctx context.Context) {
 				}
 			}
 
+			// A torrent can be deleted (for example by the classifier) between
+			// its scrape and this batch. A Where clause does not filter an
+			// INSERT, so one deleted torrent failed the whole batch on the
+			// foreign key and lost the seeders/leechers of all the others.
+			srcs, existErr := c.withExistingTorrents(ctx, srcs)
+			if existErr != nil {
+				c.logger.Errorf("error checking torrents for sources: %s", existErr.Error())
+				continue
+			}
+			if len(srcs) == 0 {
+				continue
+			}
+
 			if persistErr := c.dao.WithContext(ctx).TorrentsTorrentSource.Clauses(
 				clause.OnConflict{
 					Columns: []clause.Column{
@@ -253,11 +266,6 @@ func (c *crawler) runPersistSources(ctx context.Context) {
 						string(c.dao.TorrentsTorrentSource.UpdatedAt.ColumnName()),
 					}),
 				},
-			).Where(
-				// check that the torrent record hasn't been deleted:
-				gen.Exists(c.dao.WithContext(ctx).Torrent.Where(
-					c.dao.Torrent.InfoHash.EqCol(c.dao.TorrentsTorrentSource.InfoHash),
-				)),
 			).CreateInBatches(srcs, 100); persistErr != nil {
 				c.logger.Errorf("error persisting torrent sources: %s", persistErr.Error())
 			} else {
@@ -266,6 +274,36 @@ func (c *crawler) runPersistSources(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// withExistingTorrents keeps the sources whose torrent record still exists.
+func (c *crawler) withExistingTorrents(
+	ctx context.Context, srcs []*model.TorrentsTorrentSource,
+) ([]*model.TorrentsTorrentSource, error) {
+	if len(srcs) == 0 {
+		return srcs, nil
+	}
+	valuers := make([]driver.Valuer, 0, len(srcs))
+	for _, src := range srcs {
+		valuers = append(valuers, src.InfoHash)
+	}
+	var found []protocol.ID
+	if err := c.dao.Torrent.WithContext(ctx).Where(
+		c.dao.Torrent.InfoHash.In(valuers...),
+	).Pluck(c.dao.Torrent.InfoHash, &found); err != nil {
+		return nil, err
+	}
+	existing := make(map[protocol.ID]struct{}, len(found))
+	for _, hash := range found {
+		existing[hash] = struct{}{}
+	}
+	kept := srcs[:0]
+	for _, src := range srcs {
+		if _, ok := existing[src.InfoHash]; ok {
+			kept = append(kept, src)
+		}
+	}
+	return kept, nil
 }
 
 func createTorrentSourceModel(
