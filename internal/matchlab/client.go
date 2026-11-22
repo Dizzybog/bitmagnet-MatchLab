@@ -179,7 +179,7 @@ func (c *httpClient) Match(ctx context.Context, title string) (Response, bool, e
 	if err := validateResponse(r); err != nil {
 		return Response{}, false, err
 	}
-	return r, r.SIDStart != nil || r.ASIDStart != nil || r.ASIDEnd != nil, nil
+	return r, r.SIDStart != nil || r.SIDEnd != nil || r.ASIDStart != nil || r.ASIDEnd != nil, nil
 }
 
 func (c *httpClient) Parse(ctx context.Context, title string) (Parsed, error) {
@@ -245,6 +245,14 @@ func validateResponse(r Response) error {
 	if r.SIDStart == nil && r.SIDEnd == nil {
 		return nil
 	}
+	// A partially mapped range ("01~24" whose last episode MatchLab cannot
+	// place) has only one endpoint. It still identifies the IMDb title.
+	if r.SIDStart == nil || r.SIDEnd == nil {
+		if _, _, ok := imdbSID(firstSID(r)); !ok {
+			return fmt.Errorf("%w: malformed IMDb coordinates", ErrInvalidResponse)
+		}
+		return nil
+	}
 	startID, startParts, startOK := imdbSID(r.SIDStart)
 	endID, endParts, endOK := imdbSID(r.SIDEnd)
 	if !startOK || !endOK || startID != endID || startParts != endParts {
@@ -253,8 +261,17 @@ func validateResponse(r Response) error {
 	return nil
 }
 
+// firstSID is the start endpoint, or the end endpoint of a range whose
+// start MatchLab could not place.
+func firstSID(r Response) *string {
+	if r.SIDStart != nil {
+		return r.SIDStart
+	}
+	return r.SIDEnd
+}
+
 func IMDbID(r Response) (string, bool) {
-	id, _, ok := imdbSID(r.SIDStart)
+	id, _, ok := imdbSID(firstSID(r))
 	return id, ok
 }
 
@@ -262,6 +279,6 @@ func (r Response) IsSeries() bool {
 	if r.ASIDStart != nil || r.ASIDEnd != nil {
 		return true
 	}
-	_, parts, ok := imdbSID(r.SIDStart)
+	_, parts, ok := imdbSID(firstSID(r))
 	return ok && parts > 1
 }
